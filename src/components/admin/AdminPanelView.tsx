@@ -84,9 +84,49 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onNavigate }) =>
     setError(null);
     try {
       const res = await apiFetch('/api/admin/overview', {}, user);
-      setData(res);
-      setPortalForm(res.portalSettings);
-      setAnnouncements(Array.isArray(res.announcements) ? res.announcements : []);
+      const safeData: any = {
+        academicYears: res?.academicYears || [],
+        classes: res?.classes || [],
+        batches: res?.batches || [],
+        subjects: res?.subjects || [],
+        books: res?.books || [],
+        students: res?.students || [],
+        teachers: res?.teachers || [],
+        lessons: res?.lessons || [],
+        exams: res?.exams || [],
+        mutalaLogs: res?.mutalaLogs || [],
+        researchAssignments: res?.researchAssignments || [],
+        fatwas: res?.fatwas || [],
+        fatwaQuestions: res?.fatwaQuestions || res?.fatwas || [],
+        fatwaCategories: res?.fatwaCategories || res?.categories || [],
+        publicSubmissions: res?.publicSubmissions || [],
+        profiles: res?.profiles || [],
+        roles: res?.roles || [],
+        auditLogs: res?.auditLogs || [],
+        portalSettings: res?.portalSettings || {},
+        counts: res?.counts || {
+          students: (res?.students || []).length,
+          teachers: (res?.teachers || []).length,
+          classes: (res?.classes || []).length,
+          books: (res?.books || []).length,
+          fatwaQuestions: (res?.fatwas || []).length,
+          publishedFatwas: (res?.fatwas || []).filter((f: any) => f?.publication_status === 'published').length,
+          publicSubmissions: (res?.publicSubmissions || []).length,
+        },
+        ...res,
+      };
+      safeData.students = safeData.students || [];
+      safeData.teachers = safeData.teachers || [];
+      safeData.classes = safeData.classes || [];
+      safeData.fatwaQuestions = safeData.fatwaQuestions || [];
+      safeData.fatwaCategories = safeData.fatwaCategories || [];
+      safeData.publicSubmissions = safeData.publicSubmissions || [];
+      safeData.profiles = safeData.profiles || [];
+      safeData.counts = safeData.counts || {};
+
+      setData(safeData);
+      setPortalForm(safeData.portalSettings || {});
+      setAnnouncements(Array.isArray(safeData.announcements) ? safeData.announcements : []);
     } catch (err: any) {
       setError(err.message);
     } finally {

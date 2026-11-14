@@ -6,14 +6,13 @@ import {
   STATIC_STUDENTS,
   STATIC_TEACHERS,
   STATIC_FATWAS,
+  STATIC_ADMIN_OVERVIEW,
 } from './staticInitialData';
 
 const STORAGE_KEYS = {
   attendance: 'naafay_local_attendance',
-  questions: 'naafay_local_questions',
-  fatwas: 'naafay_local_fatwas',
-  lessons: 'naafay_local_lessons',
-  mutala: 'naafay_local_mutala',
+  adminOverview: 'naafay_local_admin_overview',
+  portalData: 'naafay_local_portal_data',
 };
 
 function getStoredJson<T>(key: string, defaultValue: T): T {
@@ -70,54 +69,69 @@ export async function handleClientFallback(url: string, options: RequestInit = {
     });
   };
 
-  // 1. Public Portal Data
-  if (pathname === '/api/public/portal-data') {
-    return jsonResponse(STATIC_PORTAL_DATA);
+  // 1. Admin Overview (/api/admin/overview)
+  if (pathname === '/api/admin/overview') {
+    const stored = getStoredJson(STORAGE_KEYS.adminOverview, STATIC_ADMIN_OVERVIEW);
+    return jsonResponse(stored || STATIC_ADMIN_OVERVIEW);
   }
 
-  // 2. Public Fatwas List
+  // 2. Public Portal Data (/api/public/portal-data)
+  if (pathname === '/api/public/portal-data') {
+    const stored = getStoredJson(STORAGE_KEYS.portalData, STATIC_PORTAL_DATA);
+    return jsonResponse(stored || STATIC_PORTAL_DATA);
+  }
+
+  // 3. Public Fatwas List
   if (pathname === '/api/public/fatwas') {
     return jsonResponse(STATIC_FATWAS || { fatwas: [], total: 0 });
   }
 
-  // 3. Public Fatwa Detail
+  // 4. Public Fatwa Detail
   if (pathname.startsWith('/api/public/fatwas/')) {
     const ident = decodeURIComponent(pathname.replace('/api/public/fatwas/', ''));
-    const fatwasList: any[] = STATIC_FATWAS?.fatwas || [];
+    const fatwasList: any[] = STATIC_FATWAS?.fatwas || STATIC_ADMIN_OVERVIEW?.fatwas || [];
     const found = fatwasList.find(
       (f) => f.id === ident || f.issued_fatwa_number === ident || f.tracking_number === ident
     ) || fatwasList[0];
     return jsonResponse(found || {});
   }
 
-  // 4. Public Question Submission
+  // 5. Public Question Submission
   if (pathname === '/api/public/questions' && method === 'POST') {
     const tracking = 'TK-' + Math.floor(100000 + Math.random() * 900000);
     const code = Math.floor(1000 + Math.random() * 9000).toString();
     return jsonResponse({ success: true, trackingNumber: tracking, verificationCode: code });
   }
 
-  // 5. Lookups
+  // 6. Lookups (/api/lookups)
   if (pathname === '/api/lookups') {
     return jsonResponse(STATIC_LOOKUPS);
   }
 
-  // 6. Dashboard
+  // 7. Dashboard (/api/dashboard)
   if (pathname === '/api/dashboard') {
     return jsonResponse(STATIC_DASHBOARD);
   }
 
-  // 7. Students List
+  // 8. Students List (/api/students)
   if (pathname === '/api/students') {
     return jsonResponse(STATIC_STUDENTS);
   }
 
-  // 8. Teachers List
+  // 9. Single Student Detail (/api/students/:id)
+  if (pathname.startsWith('/api/students/')) {
+    const stuId = pathname.replace('/api/students/', '');
+    const studentsList: any[] = STATIC_STUDENTS?.students || [];
+    const found = studentsList.find((s) => s.id === stuId || s.student_code === stuId) || studentsList[0];
+    return jsonResponse({ student: found, records: [] });
+  }
+
+  // 10. Teachers List (/api/teachers)
   if (pathname === '/api/teachers') {
     return jsonResponse(STATIC_TEACHERS);
   }
 
-  // 9. Attendance Sheet
+  // 11. Attendance Sheet (/api/attendance)
   if (pathname === '/api/attendance' && method === 'GET') {
     const qDate = parsed.searchParams.get('date') || new Date().toISOString().slice(0, 10);
     const qClassId = parsed.searchParams.get('classId');
@@ -163,7 +177,7 @@ export async function handleClientFallback(url: string, options: RequestInit = {
     return jsonResponse({ date: qDate, sessionId: '', rows });
   }
 
-  // 10. Attendance Quick Mark
+  // 12. Attendance Quick Mark (/api/attendance/quick-mark)
   if (pathname === '/api/attendance/quick-mark' && method === 'POST') {
     try {
       const body = typeof options.body === 'string' ? JSON.parse(options.body) : {};
@@ -179,14 +193,14 @@ export async function handleClientFallback(url: string, options: RequestInit = {
         success: true,
         recordId: recId,
         updated: true,
-        message: 'Attendance saved successfully (localStorage)',
+        message: 'Attendance saved successfully',
       });
     } catch (e: any) {
       return jsonResponse({ error: e?.message || 'Failed to parse body' }, 400);
     }
   }
 
-  // 11. Attendance Bulk Mark
+  // 13. Attendance Bulk Mark
   if (pathname === '/api/attendance/bulk' && method === 'POST') {
     try {
       const body = typeof options.body === 'string' ? JSON.parse(options.body) : {};
@@ -208,7 +222,7 @@ export async function handleClientFallback(url: string, options: RequestInit = {
     }
   }
 
-  // 12. Attendance Reports
+  // 14. Attendance Reports (/api/attendance/reports)
   if (pathname === '/api/attendance/reports') {
     const qDate = parsed.searchParams.get('date') || new Date().toISOString().slice(0, 10);
     const attMap = getAttendanceMap();
@@ -236,7 +250,21 @@ export async function handleClientFallback(url: string, options: RequestInit = {
     return jsonResponse({ date: qDate, reports: dailySummary, summary: { totalStudents: students.length } });
   }
 
-  // 13. Admin Login
+  // 15. Reports Overview (/api/reports/overview)
+  if (pathname === '/api/reports/overview') {
+    return jsonResponse({
+      overview: {
+        totalStudents: 8,
+        activeStudents: 7,
+        avgAttendance: 89,
+        lessonsCount: 16,
+        mutalaSubmissions: 28,
+        examsConducted: 4,
+      },
+    });
+  }
+
+  // 16. Admin Login (/api/admin/login)
   if (pathname === '/api/admin/login' && method === 'POST') {
     return jsonResponse({
       token: 'jwt-mock-admin-token',
@@ -249,7 +277,7 @@ export async function handleClientFallback(url: string, options: RequestInit = {
     });
   }
 
-  // 14. Fatwa Dashboard
+  // 17. Fatwa Endpoints
   if (pathname === '/api/fatwa/dashboard') {
     return jsonResponse({
       stats: {
@@ -259,6 +287,39 @@ export async function handleClientFallback(url: string, options: RequestInit = {
         publishedTotal: 18,
       },
     });
+  }
+  if (pathname === '/api/fatwa/categories') {
+    return jsonResponse({ categories: STATIC_PORTAL_DATA?.categories || [] });
+  }
+  if (pathname === '/api/fatwa/lookups') {
+    return jsonResponse(STATIC_LOOKUPS);
+  }
+  if (pathname === '/api/fatwa/questions') {
+    return jsonResponse({ questions: STATIC_ADMIN_OVERVIEW?.fatwas || [] });
+  }
+
+  // 18. Exams, Lessons, Mutala, Research
+  if (pathname === '/api/exams') {
+    return jsonResponse({ exams: STATIC_ADMIN_OVERVIEW?.exams || [] });
+  }
+  if (pathname === '/api/lessons') {
+    return jsonResponse({ lessons: STATIC_ADMIN_OVERVIEW?.lessons || [] });
+  }
+  if (pathname === '/api/mutala') {
+    return jsonResponse({ studyLogs: STATIC_ADMIN_OVERVIEW?.mutalaLogs || [] });
+  }
+  if (pathname === '/api/mutala/summary') {
+    return jsonResponse({ summary: { totalLogs: 28, approvedLogs: 25 } });
+  }
+  if (pathname === '/api/research') {
+    return jsonResponse({ assignments: STATIC_ADMIN_OVERVIEW?.researchAssignments || [] });
+  }
+
+  // 19. Admin CRUD Updates (Classes, Batches, Subjects, Books, Settings, Announcements)
+  if (pathname.startsWith('/api/admin/')) {
+    if (method === 'POST' || method === 'PUT' || method === 'DELETE') {
+      return jsonResponse({ success: true, message: 'Updated successfully in local state' });
+    }
   }
 
   // Fallback default response
