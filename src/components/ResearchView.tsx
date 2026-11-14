@@ -40,9 +40,9 @@ export const ResearchView: React.FC = () => {
         apiFetch('/api/students', {}, user),
         apiFetch('/api/lookups', {}, user),
       ]);
-      setAssignments(res.assignments || []);
-      setStudents(stu || []);
-      setTeachers(lkp.teachers || []);
+      setAssignments(res?.assignments || []);
+      setStudents(Array.isArray(stu) ? stu : stu?.students || []);
+      setTeachers(lkp?.teachers || []);
     } catch (err: any) {
       setError(err?.message || 'Failed to load research records');
     }

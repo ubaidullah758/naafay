@@ -27,7 +27,7 @@ export const FatwaArchiveView: React.FC<FatwaArchiveViewProps> = ({ onNavigate }
 
   useEffect(() => {
     apiFetch('/api/fatwa/categories', {}, user)
-      .then((res) => setCategories(res || []))
+      .then((res) => setCategories(Array.isArray(res) ? res : res?.categories || []))
       .catch(() => {});
   }, [user?.profileId]);
 

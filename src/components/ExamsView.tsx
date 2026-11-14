@@ -34,8 +34,13 @@ export const ExamsView: React.FC = () => {
     setError(null);
     try {
       const [ex, lkp] = await Promise.all([apiFetch('/api/exams', {}, user), apiFetch('/api/lookups', {}, user)]);
-      setExams(ex);
-      setLookups(lkp);
+      setExams(Array.isArray(ex) ? ex : Array.isArray(ex?.exams) ? ex.exams : []);
+      setLookups({
+        classes: lkp?.classes || [],
+        academicYears: lkp?.academicYears || [],
+        subjects: lkp?.subjects || [],
+        ...lkp,
+      });
     } catch (err: any) {
       setError(err?.message || 'Failed to load exams');
     }

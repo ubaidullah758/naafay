@@ -49,8 +49,18 @@ export const LessonsView: React.FC = () => {
         apiFetch(`/api/lessons${p.toString() ? `?${p.toString()}` : ''}`, {}, user),
         apiFetch('/api/lookups', {}, user),
       ]);
-      setData(res);
-      setLookups(lkp);
+      setData({
+        lessons: res?.lessons || (Array.isArray(res) ? res : []),
+        syllabus: res?.syllabus || [],
+        ...res,
+      });
+      setLookups({
+        teachers: lkp?.teachers || [],
+        classes: lkp?.classes || [],
+        subjects: lkp?.subjects || [],
+        books: lkp?.books || [],
+        ...lkp,
+      });
     } catch (err: any) {
       setError(err?.message || 'Failed to load lessons');
     }

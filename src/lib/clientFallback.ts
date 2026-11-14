@@ -7,6 +7,14 @@ import {
   STATIC_TEACHERS,
   STATIC_FATWAS,
   STATIC_ADMIN_OVERVIEW,
+  STATIC_FATWA_LOOKUPS,
+  STATIC_FATWA_DASHBOARD,
+  STATIC_MUTALA,
+  STATIC_MUTALA_SUMMARY,
+  STATIC_LESSONS,
+  STATIC_EXAMS,
+  STATIC_RESEARCH,
+  STATIC_REPORTS_OVERVIEW,
 } from './staticInitialData';
 
 const STORAGE_KEYS = {
@@ -33,7 +41,6 @@ function setStoredJson(key: string, val: any) {
   }
 }
 
-// Initialize local attendance storage from seeded static attendance
 function getAttendanceMap(): Record<string, { id: string; status: string; remarks?: string }> {
   const current = getStoredJson<Record<string, { id: string; status: string; remarks?: string }>>(
     STORAGE_KEYS.attendance,
@@ -81,15 +88,15 @@ export async function handleClientFallback(url: string, options: RequestInit = {
     return jsonResponse(stored || STATIC_PORTAL_DATA);
   }
 
-  // 3. Public Fatwas List
+  // 3. Public Fatwas List (/api/public/fatwas)
   if (pathname === '/api/public/fatwas') {
-    return jsonResponse(STATIC_FATWAS || { fatwas: [], total: 0 });
+    return jsonResponse(STATIC_FATWAS || []);
   }
 
-  // 4. Public Fatwa Detail
+  // 4. Public Fatwa Detail (/api/public/fatwas/:id)
   if (pathname.startsWith('/api/public/fatwas/')) {
     const ident = decodeURIComponent(pathname.replace('/api/public/fatwas/', ''));
-    const fatwasList: any[] = STATIC_FATWAS?.fatwas || STATIC_ADMIN_OVERVIEW?.fatwas || [];
+    const fatwasList: any[] = Array.isArray(STATIC_FATWAS) ? STATIC_FATWAS : STATIC_ADMIN_OVERVIEW?.fatwas || [];
     const found = fatwasList.find(
       (f) => f.id === ident || f.issued_fatwa_number === ident || f.tracking_number === ident
     ) || fatwasList[0];
@@ -113,22 +120,24 @@ export async function handleClientFallback(url: string, options: RequestInit = {
     return jsonResponse(STATIC_DASHBOARD);
   }
 
-  // 8. Students List (/api/students)
+  // 8. Students List (/api/students) -> Returns Array directly!
   if (pathname === '/api/students') {
-    return jsonResponse(STATIC_STUDENTS);
+    const studentsArr = Array.isArray(STATIC_STUDENTS) ? STATIC_STUDENTS : STATIC_STUDENTS?.students || [];
+    return jsonResponse(studentsArr);
   }
 
   // 9. Single Student Detail (/api/students/:id)
   if (pathname.startsWith('/api/students/')) {
     const stuId = pathname.replace('/api/students/', '');
-    const studentsList: any[] = STATIC_STUDENTS?.students || [];
+    const studentsList: any[] = Array.isArray(STATIC_STUDENTS) ? STATIC_STUDENTS : STATIC_STUDENTS?.students || [];
     const found = studentsList.find((s) => s.id === stuId || s.student_code === stuId) || studentsList[0];
     return jsonResponse({ student: found, records: [] });
   }
 
-  // 10. Teachers List (/api/teachers)
+  // 10. Teachers List (/api/teachers) -> Returns Array directly!
   if (pathname === '/api/teachers') {
-    return jsonResponse(STATIC_TEACHERS);
+    const teachersArr = Array.isArray(STATIC_TEACHERS) ? STATIC_TEACHERS : STATIC_TEACHERS?.teachers || [];
+    return jsonResponse(teachersArr);
   }
 
   // 11. Attendance Sheet (/api/attendance)
@@ -137,7 +146,7 @@ export async function handleClientFallback(url: string, options: RequestInit = {
     const qClassId = parsed.searchParams.get('classId');
     const attMap = getAttendanceMap();
 
-    const baseStudents: any[] = STATIC_STUDENTS?.students || STATIC_ATTENDANCE?.rows || [];
+    const baseStudents: any[] = Array.isArray(STATIC_STUDENTS) ? STATIC_STUDENTS : STATIC_ATTENDANCE?.rows || [];
     const filteredStudents = qClassId
       ? baseStudents.filter((s) => s.class_id === qClassId)
       : baseStudents;
@@ -226,7 +235,7 @@ export async function handleClientFallback(url: string, options: RequestInit = {
   if (pathname === '/api/attendance/reports') {
     const qDate = parsed.searchParams.get('date') || new Date().toISOString().slice(0, 10);
     const attMap = getAttendanceMap();
-    const students = STATIC_STUDENTS?.students || [];
+    const students: any[] = Array.isArray(STATIC_STUDENTS) ? STATIC_STUDENTS : STATIC_STUDENTS?.students || [];
 
     const dailySummary = students.map((s: any) => {
       let presentCount = 0;
@@ -252,7 +261,7 @@ export async function handleClientFallback(url: string, options: RequestInit = {
 
   // 15. Reports Overview (/api/reports/overview)
   if (pathname === '/api/reports/overview') {
-    return jsonResponse({
+    return jsonResponse(STATIC_REPORTS_OVERVIEW || {
       overview: {
         totalStudents: 8,
         activeStudents: 7,
@@ -277,49 +286,96 @@ export async function handleClientFallback(url: string, options: RequestInit = {
     });
   }
 
-  // 17. Fatwa Endpoints
+  // 17. Fatwa Lookups (/api/fatwa/lookups)
+  if (pathname === '/api/fatwa/lookups') {
+    return jsonResponse(STATIC_FATWA_LOOKUPS || { categories: [], assignees: [] });
+  }
+
+  // 18. Fatwa Dashboard (/api/fatwa/dashboard)
   if (pathname === '/api/fatwa/dashboard') {
-    return jsonResponse({
-      stats: {
-        totalQuestions: 24,
-        pendingReview: 3,
-        approvedToday: 2,
-        publishedTotal: 18,
+    return jsonResponse(STATIC_FATWA_DASHBOARD || {
+      counts: {
+        totalQuestions: 6,
+        newQuestions: 1,
+        assignedQuestions: 0,
+        underResearch: 1,
+        draftsInProgress: 0,
+        pendingSeniorReview: 1,
+        pendingFinalApproval: 1,
+        approvedFatwas: 2,
+        issuedFatwas: 2,
+        publishedFatwas: 2,
       },
+      questions: STATIC_FATWA_DASHBOARD?.questions || [],
     });
   }
+
+  // 19. Fatwa Archive (/api/fatwa/archive) -> Returns Array directly!
+  if (pathname === '/api/fatwa/archive') {
+    const list = STATIC_FATWA_DASHBOARD?.questions || [];
+    return jsonResponse(list);
+  }
+
+  // 20. Single Fatwa Question Detail (/api/fatwa/questions/:id)
+  if (pathname.startsWith('/api/fatwa/questions/')) {
+    const fId = pathname.replace('/api/fatwa/questions/', '').split('/')[0];
+    const qList: any[] = STATIC_FATWA_DASHBOARD?.questions || [];
+    const found = qList.find((q) => q.id === fId || q.fatwa_code === fId) || qList[0];
+    return jsonResponse({ question: found, drafts: [], references: [], documents: [] });
+  }
+
+  // 21. Fatwa Categories (/api/fatwa/categories) -> Returns Array directly!
   if (pathname === '/api/fatwa/categories') {
-    return jsonResponse({ categories: STATIC_PORTAL_DATA?.categories || [] });
-  }
-  if (pathname === '/api/fatwa/lookups') {
-    return jsonResponse(STATIC_LOOKUPS);
-  }
-  if (pathname === '/api/fatwa/questions') {
-    return jsonResponse({ questions: STATIC_ADMIN_OVERVIEW?.fatwas || [] });
+    const catsArr = STATIC_FATWA_LOOKUPS?.categories || STATIC_PORTAL_DATA?.categories || [];
+    return jsonResponse(catsArr);
   }
 
-  // 18. Exams, Lessons, Mutala, Research
-  if (pathname === '/api/exams') {
-    return jsonResponse({ exams: STATIC_ADMIN_OVERVIEW?.exams || [] });
-  }
-  if (pathname === '/api/lessons') {
-    return jsonResponse({ lessons: STATIC_ADMIN_OVERVIEW?.lessons || [] });
-  }
+  // 22. Mutala / Study Logs (/api/mutala) -> Returns Array directly!
   if (pathname === '/api/mutala') {
-    return jsonResponse({ studyLogs: STATIC_ADMIN_OVERVIEW?.mutalaLogs || [] });
-  }
-  if (pathname === '/api/mutala/summary') {
-    return jsonResponse({ summary: { totalLogs: 28, approvedLogs: 25 } });
-  }
-  if (pathname === '/api/research') {
-    return jsonResponse({ assignments: STATIC_ADMIN_OVERVIEW?.researchAssignments || [] });
+    return jsonResponse(Array.isArray(STATIC_MUTALA) ? STATIC_MUTALA : []);
   }
 
-  // 19. Admin CRUD Updates (Classes, Batches, Subjects, Books, Settings, Announcements)
-  if (pathname.startsWith('/api/admin/')) {
-    if (method === 'POST' || method === 'PUT' || method === 'DELETE') {
-      return jsonResponse({ success: true, message: 'Updated successfully in local state' });
-    }
+  // 23. Mutala Summary (/api/mutala/summary) -> Returns Array directly!
+  if (pathname === '/api/mutala/summary') {
+    return jsonResponse(Array.isArray(STATIC_MUTALA_SUMMARY) ? STATIC_MUTALA_SUMMARY : []);
+  }
+
+  // 24. Lessons (/api/lessons) -> Returns { lessons: [], bookProgress: [] }
+  if (pathname === '/api/lessons') {
+    return jsonResponse(STATIC_LESSONS || { lessons: [], bookProgress: [] });
+  }
+
+  // 25. Exams (/api/exams) -> Returns Array directly!
+  if (pathname === '/api/exams') {
+    return jsonResponse(Array.isArray(STATIC_EXAMS) ? STATIC_EXAMS : []);
+  }
+
+  // 26. Single Exam Detail (/api/exams/:id)
+  if (pathname.startsWith('/api/exams/')) {
+    const exId = pathname.replace('/api/exams/', '').split('/')[0];
+    const examList: any[] = Array.isArray(STATIC_EXAMS) ? STATIC_EXAMS : [];
+    const found = examList.find((e) => e.id === exId) || examList[0];
+    return jsonResponse({ exam: found, subjects: [], results: [] });
+  }
+
+  // 27. Research Assignments (/api/research) -> Returns { topics: [], assignments: [] }
+  if (pathname === '/api/research') {
+    return jsonResponse(STATIC_RESEARCH || { topics: [], assignments: [] });
+  }
+
+  // 28. Documents (/api/documents)
+  if (pathname === '/api/documents') {
+    return jsonResponse({ documents: [] });
+  }
+
+  // 29. Global Search (/api/search)
+  if (pathname === '/api/search') {
+    return jsonResponse({ results: [] });
+  }
+
+  // 30. All POST, PUT, DELETE operations succeed
+  if (method === 'POST' || method === 'PUT' || method === 'DELETE') {
+    return jsonResponse({ success: true, message: 'Updated successfully in local state' });
   }
 
   // Fallback default response

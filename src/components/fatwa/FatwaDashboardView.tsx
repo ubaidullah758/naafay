@@ -42,7 +42,7 @@ export const FatwaDashboardView: React.FC<FatwaDashboardViewProps> = ({ onNaviga
 
   useEffect(() => {
     apiFetch('/api/fatwa/lookups', {}, user)
-      .then((res) => setLookups(res))
+      .then((res) => setLookups({ categories: res?.categories || [], assignees: res?.assignees || [] }))
       .catch(() => {});
   }, [user?.profileId]);
 

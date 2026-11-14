@@ -81,10 +81,11 @@ export const FatwaQuestionsView: React.FC<FatwaQuestionsViewProps> = ({ initialF
         apiFetch(`/api/fatwa/dashboard?${qs.toString()}`, {}, user),
         apiFetch('/api/fatwa/categories', {}, user),
       ]);
-      setQuestions(dash.questions || []);
-      setCategories(cats || []);
-      if (!regForm.category_id && cats?.length > 0) {
-        setRegForm((f) => ({ ...f, category_id: cats[0].id }));
+      setQuestions(dash?.questions || []);
+      const categoryList = Array.isArray(cats) ? cats : Array.isArray(cats?.categories) ? cats.categories : [];
+      setCategories(categoryList);
+      if (!regForm.category_id && categoryList?.length > 0) {
+        setRegForm((f) => ({ ...f, category_id: categoryList[0].id }));
       }
     } catch (err: any) {
       setError(err?.message || 'Failed to load fatwa questions');

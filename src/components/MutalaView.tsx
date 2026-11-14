@@ -62,14 +62,15 @@ export const MutalaView: React.FC = () => {
         apiFetch('/api/lookups', {}, user),
         apiFetch('/api/students', {}, user),
       ]);
-      setLogs(mRes);
-      setSummaryRows(sumRes);
-      setBooks(lkp.books || []);
-      setStudents(stuRes || []);
+      setLogs(Array.isArray(mRes) ? mRes : []);
+      setSummaryRows(Array.isArray(sumRes) ? sumRes : []);
+      setBooks(Array.isArray(lkp?.books) ? lkp.books : []);
+      const studentList = Array.isArray(stuRes) ? stuRes : Array.isArray(stuRes?.students) ? stuRes.students : [];
+      setStudents(studentList);
       if (user?.studentId) {
         setForm((f) => ({ ...f, student_id: user.studentId! }));
-      } else if (stuRes?.[0]?.id && !editingLog) {
-        setForm((f) => ({ ...f, student_id: stuRes[0].id }));
+      } else if (studentList?.[0]?.id && !editingLog) {
+        setForm((f) => ({ ...f, student_id: studentList[0].id }));
       }
     } catch (err: any) {
       setError(err?.message || 'Failed to load study logs');
