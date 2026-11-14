@@ -1,0 +1,136 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-urdu: 'Noto Nastaliq Urdu', 'Jameel Noori Nastaleeq', serif;
+    --font-arabic: 'Amiri', 'Traditional Arabic', serif;
+    --font-sans: 'Poppins', system-ui, -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  }
+
+  html[lang="ur"] body {
+    font-family: var(--font-urdu);
+    line-height: 2.35;
+    text-rendering: auto;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  html[lang="en"] body {
+    font-family: var(--font-sans);
+    line-height: 1.6;
+  }
+
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Clean Nastaliq Urdu typography: native OpenType mark/mkmk dot positioning + generous vertical clearance */
+html[lang="ur"] :is(
+  p, span, div, a, label, li, dt, dd, strong, em,
+  .text-xs, .text-sm, .text-base, .text-lg, .text-xl, .text-2xl, .text-3xl,
+  .leading-none, .leading-tight, .leading-snug, .leading-normal, .leading-relaxed, .leading-loose
+):not(.font-mono-code):not(.font-poppins):not(.font-arabic) {
+  line-height: 2.35;
+  letter-spacing: 0;
+  text-rendering: auto;
+  font-weight: 400;
+}
+
+html[lang="ur"] :is(h1, h2, h3, h4, h5, h6):not(.font-mono-code):not(.font-poppins) {
+  line-height: 2.45;
+  overflow: visible;
+  padding-block: 0.2rem;
+  letter-spacing: 0;
+  font-weight: 500;
+}
+
+html[lang="ur"] :is(.font-semibold, .font-bold):not(.font-mono-code):not(.font-poppins):not(.tabular-nums) {
+  font-weight: 500;
+}
+
+html[lang="ur"] button:not(.font-mono-code):not(.font-poppins) {
+  line-height: 2.3;
+  overflow: visible;
+  padding-block: 0.35rem;
+}
+
+html[lang="ur"] :is(input, select, textarea):not(.font-mono-code):not(.font-poppins) {
+  line-height: 2.35;
+  overflow: visible;
+}
+
+html[lang="ur"] select:not(.font-mono-code) {
+  min-height: 3.35rem;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+  line-height: 2.35;
+}
+
+html[lang="ur"] input:not([type="checkbox"]):not([type="radio"]):not(.font-mono-code) {
+  min-height: 3.05rem;
+  padding-top: 0.4rem;
+  padding-bottom: 0.4rem;
+}
+
+html[lang="ur"] :is(th, td):not(.font-mono-code) {
+  line-height: 2.35;
+  padding-top: 0.7rem;
+  padding-bottom: 0.7rem;
+  vertical-align: middle;
+}
+
+.font-urdu {
+  font-family: 'Noto Nastaliq Urdu', 'Jameel Noori Nastaleeq', serif;
+  line-height: 2.3;
+  overflow: visible;
+  letter-spacing: 0;
+  text-rendering: auto;
+}
+
+.font-arabic {
+  font-family: 'Amiri', 'Traditional Arabic', serif;
+  line-height: 2.15;
+  overflow: visible;
+}
+
+.font-poppins {
+  font-family: 'Poppins', system-ui, sans-serif;
+  line-height: 1.55;
+}
+
+.font-mono-code {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.45;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #b8c7d9;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #8da4be;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: #ffffff !important;
+  }
+  .print-container {
+    box-shadow: none !important;
+    border: 1px solid #cbd5e1 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+}

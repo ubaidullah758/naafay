@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ur" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>نافع دارالافتاء | Naafay Darul Ifta Management System</title>
+    <meta name="description" content="Integrated Academic & Dar-ul-Ifta Management System for Naafay Dar-ul-Ifta & Takhassus fil Fiqh with Urdu RTL, Arabic, and English support." />
+    <meta name="theme-color" content="#0B2545" />
+
+    <!-- Favicon / touch icon (reuses the institutional logo already in /public) -->
+    <link rel="icon" type="image/jpeg" href="/assets/aistudio/naafay_logo_8857642c.jpg" />
+    <link rel="apple-touch-icon" href="/assets/aistudio/naafay_logo_8857642c.jpg" />
+
+    <meta property="og:site_name" content="Naafay Dar-ul-Ifta" />
+    <meta property="og:title" content="Naafay Darul Ifta Management System" />
+    <meta property="og:description" content="Integrated Academic & Dar-ul-Ifta Fatwa Research, Review, and Approval Platform." />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="/assets/aistudio/naafay_cover_6416720b.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="/assets/aistudio/naafay_cover_6416720b.jpg" />
+
+    <!--
+      Fonts are loaded without blocking first paint. Previously four families
+      with eleven weights sat in the critical path, which delayed the whole app.
+      Weights trimmed to the ones the UI actually uses; `display=swap` is set so
+      text renders immediately with the fallback stack.
+    -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="preload"
+      as="style"
+      href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=JetBrains+Mono:wght@400;600&family=Noto+Nastaliq+Urdu:wght@400;700&family=Poppins:wght@400;500;600;700&display=swap"
+    />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=JetBrains+Mono:wght@400;600&family=Noto+Nastaliq+Urdu:wght@400;700&family=Poppins:wght@400;500;600;700&display=swap"
+      media="print"
+      onload="this.media='all'"
+    />
+    <noscript>
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=JetBrains+Mono:wght@400;600&family=Noto+Nastaliq+Urdu:wght@400;700&family=Poppins:wght@400;500;600;700&display=swap"
+      />
+    </noscript>
+  </head>
+  <body class="bg-[#F4F7FA] text-[#0F1F38] antialiased selection:bg-[#057A4B]/15 selection:text-[#0B2545]">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,6 @@
+{
+  "name": "Naafay Darul Ifta Management System",
+  "description": "Integrated Academic Management System for Naafay Dar-ul-Ifta & Takhassus fil Fiqh with Urdu RTL and English support.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
