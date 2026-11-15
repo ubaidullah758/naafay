@@ -25,11 +25,13 @@ export const AttendanceView: React.FC = () => {
   const [dailyViewMode, setDailyViewMode] = useState<'attendance_sheet' | 'academic_sheet' | 'combined'>('attendance_sheet');
   const [academicClassFilter, setAcademicClassFilter] = useState<string>('cls-tak1');
 
-  // Monthly Mode: Individual 30-Day Register (Screenshots 4 & 5) vs Overall Summary Table
-  const [monthlyViewMode, setMonthlyViewMode] = useState<'individual_register' | 'summary_table'>('individual_register');
+  // Monthly Mode: Datesheet Register Grid vs Individual 30-Day Register vs Overall Summary Table
+  const [monthlyViewMode, setMonthlyViewMode] = useState<'datesheet_grid' | 'individual_register' | 'summary_table'>('datesheet_grid');
   const [selectedStudentId, setSelectedStudentId] = useState<string>('');
   const [studentMonthlyData, setStudentMonthlyData] = useState<any | null>(null);
   const [loadingStudentMonthly, setLoadingStudentMonthly] = useState<boolean>(false);
+  const [monthlyMatrix, setMonthlyMatrix] = useState<any | null>(null);
+  const [loadingMatrix, setLoadingMatrix] = useState<boolean>(false);
 
   const [rows, setRows] = useState<any[]>([]);
   // remarks draft per student (saved together with the next status selection)
@@ -150,6 +152,27 @@ export const AttendanceView: React.FC = () => {
     if (subTab === 'mark') loadAttendanceSheet();
     else loadReports();
   }, [subTab, date, month, classId, batchId, user?.role]);
+
+  // Load monthly datesheet matrix (Full month date-by-date grid for all students)
+  const loadMonthlyMatrix = async () => {
+    setLoadingMatrix(true);
+    try {
+      const p = new URLSearchParams({ month });
+      if (classId) p.set('classId', classId);
+      const res = await apiFetch(`/api/attendance/monthly-matrix?${p.toString()}`, {}, user);
+      if (res && res.rows) setMonthlyMatrix(res);
+    } catch (err: any) {
+      console.warn('Failed to load monthly matrix', err);
+    } finally {
+      setLoadingMatrix(false);
+    }
+  };
+
+  useEffect(() => {
+    if (subTab === 'monthly') {
+      loadMonthlyMatrix();
+    }
+  }, [subTab, month, classId]);
 
   // Load individual student monthly register data (Screenshots 4 & 5)
   useEffect(() => {
@@ -1019,44 +1042,35 @@ export const AttendanceView: React.FC = () => {
             </button>
           </div>
 
-          {/* MODE 1: اوقات حاضری کارگزاری (Official Daily Attendance Matrix - Image 10) */}
+          {/* MODE 1: اوقات حاضری کارگزاری (Official Daily Attendance Matrix - 100% Real Data) */}
           {dailyViewMode === 'attendance_sheet' && (() => {
-            const year1Students = dailyGroupedRows.filter((r: any) => {
-              const c = (r.class_name_ur || r.class_name_en || '').toLowerCase();
-              return !c.includes('دوم') && !c.includes('second') && r.class_id !== 'cls-tak2';
-            });
-            const year2Students = dailyGroupedRows.filter((r: any) => {
-              const c = (r.class_name_ur || r.class_name_en || '').toLowerCase();
-              return c.includes('دوم') || c.includes('second') || r.class_id === 'cls-tak2';
-            });
+            // Group real students dynamically by their class
+            const classesMap: Record<string, { classNameUr: string; students: any[] }> = {};
+            for (const r of dailyGroupedRows) {
+              const clsKey = r.class_id || r.class_name_ur || 'other';
+              const clsName = r.class_name_ur || r.class_name_en || (lang === 'ur' ? 'عام جماعت' : 'General Class');
+              if (!classesMap[clsKey]) {
+                classesMap[clsKey] = { classNameUr: clsName, students: [] };
+              }
+              classesMap[clsKey].students.push(r);
+            }
 
-            const displayYear1 = year1Students.length > 0 ? year1Students : [
-              { student_id: 'd1', full_name_ur: 'مراد احمد', late_minutes: 10, defaultTiming: 'حاضر(2:10تا5:00)' },
-              { student_id: 'd2', full_name_ur: 'محمد فرقان', late_minutes: 10, defaultTiming: 'حاضر(2:00تا5:00)' },
-              { student_id: 'd3', full_name_ur: 'حماد اللہ', late_minutes: 10, defaultTiming: 'حاضر(2:00تا5:00)' },
-              { student_id: 'd4', full_name_ur: 'عبد الوہاب', late_minutes: 0, defaultTiming: 'حاضر(2:00تا5:00)' },
-              { student_id: 'd5', full_name_ur: 'عبد الرحمن', late_minutes: 0, defaultTiming: 'حاضر(2:00تا5:00)' },
-              { student_id: 'd6', full_name_ur: 'سید حبیب شاہ', late_minutes: 30, defaultTiming: 'حاضر(2:10تا5:00)' },
-            ];
+            const classGroups = Object.values(classesMap);
+            const isSundayDate = new Date(date + 'T12:00:00Z').getDay() === 0;
 
-            const displayYear2 = year2Students.length > 0 ? year2Students : [
-              { student_id: 'd7', full_name_ur: 'سلیم اللہ', late_minutes: 10, defaultTiming: 'حاضر(2:00تا5:00)' },
-              { student_id: 'd8', full_name_ur: 'کلیم اللہ', late_minutes: 20, defaultTiming: 'حاضر(2:00تا5:00)' },
-              { student_id: 'd9', full_name_ur: 'عبد اللہ', late_minutes: 15, defaultTiming: 'حاضر(2:00تا5:00)' },
-            ];
-
-            const renderSessionCell = (stu: any, sesId: string, defaultFallback: string) => {
+            const renderSessionCell = (stu: any, sesId: string) => {
+              if (isSundayDate) return 'تعطیل (اتوار)';
               const sRec = stu.sessions?.[sesId];
-              if (!sRec) return defaultFallback;
-              if (sRec.status === 'absent') return 'چھٹی';
+              if (!sRec || !sRec.status) return '—';
+              if (sRec.status === 'absent') return 'غیر حاضر';
               if (sRec.status === 'leave') return 'رخصت';
               if (sRec.status === 'late') {
-                const lm = sRec.late_minutes || 15;
-                if (sesId === 'ses-zuhr' || sesId === 'zuhr_asr') return `حاضر(2:${lm}تا5:00)`;
-                return `حاضر (تاخیر ${lm}m)`;
+                const lm = Number(sRec.late_minutes) || 15;
+                if (sesId === 'ses-zuhr' || sesId === 'zuhr_asr') return `حاضر(2:${String(lm).padStart(2, '0')}تا5:00)`;
+                return `حاضر (${lm} منٹ تاخیر)`;
               }
               if (sRec.status === 'present') {
-                if (sesId === 'ses-morning' || sesId === 'morning_zuhr') return 'چھٹی';
+                if (sesId === 'ses-morning' || sesId === 'morning_zuhr') return 'حاضر(8:00تا12:00)';
                 if (sesId === 'ses-zuhr' || sesId === 'zuhr_asr') return 'حاضر(2:00تا5:00)';
                 if (sesId === 'ses-maghrib' || sesId === 'maghrib_isha') return 'حاضر(7:00تا9:00)';
                 return 'حاضر';
@@ -1065,15 +1079,15 @@ export const AttendanceView: React.FC = () => {
             };
 
             const getLateDisplay = (stu: any) => {
-              if (stu.late_minutes !== undefined && stu.late_minutes !== null) {
-                return `${stu.late_minutes} منٹ`;
+              if (isSundayDate) return '—';
+              let totalMin = 0;
+              for (const sc of sessionColumns) {
+                const s = stu.sessions?.[sc.id];
+                if (s?.status === 'late') {
+                  totalMin += (Number(s.late_minutes) || 15);
+                }
               }
-              const lateSes = sessionColumns.find((sc) => stu.sessions?.[sc.id]?.status === 'late');
-              if (lateSes) {
-                const lm = stu.sessions?.[lateSes.id]?.late_minutes || 10;
-                return `${lm} منٹ`;
-              }
-              return '0 منٹ';
+              return totalMin > 0 ? `${totalMin} منٹ` : '0 منٹ';
             };
 
             return (
@@ -1084,91 +1098,62 @@ export const AttendanceView: React.FC = () => {
                     اوقات حاضری کارگزاری
                   </h2>
                   <div className="text-xs sm:text-sm text-black font-urdu pt-1 font-semibold">
-                    {formatUrduFullDate(date)}
+                    {formatUrduFullDate(date)} {isSundayDate && <span className="text-red-600">(ہفتہ وار تعطیل)</span>}
                   </div>
                 </div>
 
-                {/* Section 1: تخصص فی الفقہ سال اول */}
-                <div className="space-y-2">
-                  <div className="text-center font-bold text-sm sm:text-base text-black font-urdu">
-                    تخصص فی الفقہ سال اول
+                {classGroups.length === 0 ? (
+                  <div className="py-12 text-center text-gray-500 font-urdu text-sm">
+                    اس تاریخ ({date}) کی حاضری کا کوئی ریکارڈ موجود نہیں ہے۔ براہ کرم "حاضری لگائیں" سے حاضری درج کریں۔
                   </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs border-collapse border-2 border-black text-center font-urdu">
-                      <thead>
-                        <tr className="bg-[#FEF3C7] text-black font-bold">
-                          <th className="border border-black py-2.5 px-3 w-[20%] text-center font-bold">طلباء کرام</th>
-                          <th className="border border-black py-2.5 px-3 w-[20%] text-center font-bold">صبح تا ظہر</th>
-                          <th className="border border-black py-2.5 px-3 w-[20%] text-center font-bold">ظہر تا عصر</th>
-                          <th className="border border-black py-2.5 px-3 w-[20%] text-center font-bold">مغرب تا عشاء</th>
-                          <th className="border border-black py-2.5 px-3 w-[20%] text-center font-bold">یومیہ تاخیر (منٹ)</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {displayYear1.map((stu: any) => (
-                          <tr key={stu.student_id || stu.student_code} className="hover:bg-amber-50/40">
-                            <td className="border border-black py-2 px-3 font-semibold text-black">
-                              {pick(stu.full_name, stu.full_name_ur)}
-                            </td>
-                            <td className="border border-black py-2 px-3">
-                              {renderSessionCell(stu, 'ses-morning', stu.s1 || 'چھٹی')}
-                            </td>
-                            <td className="border border-black py-2 px-3">
-                              {renderSessionCell(stu, 'ses-zuhr', stu.defaultTiming || stu.s2 || 'حاضر(2:00تا5:00)')}
-                            </td>
-                            <td className="border border-black py-2 px-3">
-                              {renderSessionCell(stu, 'ses-maghrib', stu.s3 || 'حاضر(7:00تا9:00)')}
-                            </td>
-                            <td className="border border-black py-2 px-3 font-bold text-black">
-                              {getLateDisplay(stu)}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                {/* Section 2: تخصص فی الفقہ سال دوم */}
-                <div className="space-y-2 pt-2">
-                  <div className="text-center font-bold text-sm sm:text-base text-black font-urdu">
-                    تخصص فی الفقہ سال دوم
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs border-collapse border-2 border-black text-center font-urdu">
-                      <thead>
-                        <tr className="bg-[#FEF3C7] text-black font-bold">
-                          <th className="border border-black py-2.5 px-3 w-[20%] text-center font-bold">طلباء کرام</th>
-                          <th className="border border-black py-2.5 px-3 w-[20%] text-center font-bold">صبح تا ظہر</th>
-                          <th className="border border-black py-2.5 px-3 w-[20%] text-center font-bold">ظہر تا عصر</th>
-                          <th className="border border-black py-2.5 px-3 w-[20%] text-center font-bold">مغرب تا عشاء</th>
-                          <th className="border border-black py-2.5 px-3 w-[20%] text-center font-bold">یومیہ تاخیر (منٹ)</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {displayYear2.map((stu: any) => (
-                          <tr key={stu.student_id || stu.student_code} className="hover:bg-amber-50/40">
-                            <td className="border border-black py-2 px-3 font-semibold text-black">
-                              {pick(stu.full_name, stu.full_name_ur)}
-                            </td>
-                            <td className="border border-black py-2 px-3">
-                              {renderSessionCell(stu, 'ses-morning', stu.s1 || 'چھٹی')}
-                            </td>
-                            <td className="border border-black py-2 px-3">
-                              {renderSessionCell(stu, 'ses-zuhr', stu.defaultTiming || stu.s2 || 'حاضر(2:00تا5:00)')}
-                            </td>
-                            <td className="border border-black py-2 px-3">
-                              {renderSessionCell(stu, 'ses-maghrib', stu.s3 || 'حاضر(7:00تا9:00)')}
-                            </td>
-                            <td className="border border-black py-2 px-3 font-bold text-black">
-                              {getLateDisplay(stu)}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
+                ) : (
+                  classGroups.map((grp, gIdx) => (
+                    <div key={gIdx} className="space-y-2 pt-1">
+                      <div className="text-center font-bold text-sm sm:text-base text-black font-urdu">
+                        {grp.classNameUr} ({grp.students.length} طلباء)
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs border-collapse border-2 border-black text-center font-urdu">
+                          <thead>
+                            <tr className="bg-[#FEF3C7] text-black font-bold">
+                              <th className="border border-black py-2.5 px-3 w-[22%] text-center font-bold">طلباء کرام</th>
+                              <th className="border border-black py-2.5 px-3 w-[20%] text-center font-bold">صبح تا ظہر</th>
+                              <th className="border border-black py-2.5 px-3 w-[20%] text-center font-bold">ظہر تا عصر</th>
+                              <th className="border border-black py-2.5 px-3 w-[20%] text-center font-bold">مغرب تا عشاء</th>
+                              <th className="border border-black py-2.5 px-3 w-[18%] text-center font-bold">یومیہ تاخیر (منٹ)</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {grp.students.map((stu: any) => (
+                              <tr key={stu.student_id || stu.student_code} className="hover:bg-amber-50/40">
+                                <td className="border border-black py-2 px-3 font-semibold text-black">
+                                  {pick(stu.full_name, stu.full_name_ur)}{' '}
+                                  {stu.student_code && (
+                                    <span className="text-[10px] text-gray-600 font-mono-code font-normal">
+                                      ({stu.student_code})
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="border border-black py-2 px-3">
+                                  {renderSessionCell(stu, 'ses-morning')}
+                                </td>
+                                <td className="border border-black py-2 px-3">
+                                  {renderSessionCell(stu, 'ses-zuhr')}
+                                </td>
+                                <td className="border border-black py-2 px-3">
+                                  {renderSessionCell(stu, 'ses-maghrib')}
+                                </td>
+                                <td className="border border-black py-2 px-3 font-bold text-black font-mono-code">
+                                  {getLateDisplay(stu)}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ))
+                )}
 
                 {/* Signatures */}
                 <div className="pt-8 pb-3 flex items-end justify-between px-6 sm:px-12 text-xs font-urdu text-black">
@@ -1187,34 +1172,17 @@ export const AttendanceView: React.FC = () => {
             );
           })()}
 
-          {/* MODE 2: یومیہ کارگزاری (اساتذہ اسباق و طلبہ مطالعہ - Image 9) */}
+          {/* MODE 2: یومیہ کارگزاری (اساتذہ اسباق و طلبہ مطالعہ - 100% Real Data) */}
           {dailyViewMode === 'academic_sheet' && (() => {
-            const displayLessons = (reports?.dailyLessons && reports.dailyLessons.length > 0)
-              ? reports.dailyLessons
-              : [
-                  { id: 'l1', teacher_name_ur: 'مفتی فرحان عاطف صاحب', book_title_ur: 'الاشباہ والنظائر', lesson_timing: 'حاضر(8:15تا8:45)', start_title: 'تنبیہ علی الجرح', start_position: '55', end_position: '', daily_pages: 1, cumulative_pages: 51 },
-                  { id: 'l2', teacher_name_ur: 'مفتی عرفان خالد صاحب', book_title_ur: 'اسلام اور جدید معیشت', lesson_timing: 'حاضر(2:40تا3:10)', start_title: 'دونوں نظاموں پر تبصرہ', start_position: '44', end_position: '54', daily_pages: 10, cumulative_pages: 32 },
-                  { id: 'l3', teacher_name_ur: 'مفتی طلحہ صاحب', book_title_ur: 'موافقات', lesson_timing: 'حاضر(3:10تا4:10)', start_title: 'المسئلۃ السادسۃ تا هذه بالعذاب مبالغة', start_position: '345', end_position: '346', daily_pages: 1, cumulative_pages: 26 },
-                  { id: 'l4', teacher_name_ur: 'مفتی عبد الرحمن صاحب', book_title_ur: 'مسلم الثبوت', lesson_timing: 'حاضر(07:20تا08:10)', start_title: 'مسألة تا و عاص قطعا', start_position: '42', end_position: '', daily_pages: 1, cumulative_pages: 35 },
-                ];
-
-            const displayMutala = (reports?.dailyMutala && reports.dailyMutala.length > 0)
-              ? reports.dailyMutala
-              : [
-                  { id: 'm1', student_name_ur: 'مراد احمد', start_title: 'ویلزم کل المہر تا باب الکفاءۃ', start_position: '74', end_position: '84', daily_pages: 10, cumulative_pages: 455, juziyat_count: 2 },
-                  { id: 'm2', student_name_ur: 'محمد فرقان', start_title: 'والعبرة لحاة الرمی تا مطلب لا یجب الضمان بكسر', start_position: '688', end_position: '699', daily_pages: 11, cumulative_pages: 399, juziyat_count: 1 },
-                  { id: 'm3', student_name_ur: 'حماد اللہ', start_title: 'تتمة فی الفتح تا باب السائمة', start_position: '172', end_position: '175', daily_pages: 23, cumulative_pages: 175, juziyat_count: 1 },
-                  { id: 'm4', student_name_ur: 'عبد الوہاب', start_title: 'باب العشر تا واخذ عشر', start_position: '311', end_position: '320', daily_pages: 9, cumulative_pages: 468, juziyat_count: 1 },
-                  { id: 'm5', student_name_ur: 'عبد الرحمن', start_title: 'قوله ادهن تا قوله لزم دم واتم', start_position: '546', end_position: '549', daily_pages: 5, cumulative_pages: 302, juziyat_count: 1 },
-                  { id: 'm6', student_name_ur: 'سید حبیب شاہ', start_title: 'مطلب فيما لو زوج المولى تا باب الولی', start_position: '140', end_position: '147', daily_pages: 7, cumulative_pages: 367, juziyat_count: 1 },
-                ];
+            const displayLessons = reports?.dailyLessons || [];
+            const displayMutala = reports?.dailyMutala || [];
 
             return (
               <div className="bg-white border-2 border-black p-6 sm:p-8 rounded-lg space-y-6 max-w-4xl mx-auto shadow-sm print:border-none print:shadow-none print:p-0">
                 {/* Header */}
                 <div className="text-center space-y-1 pb-1">
                   <h2 className="text-xl sm:text-2xl font-bold text-black font-urdu tracking-wide inline-block border-b-2 border-black pb-1">
-                    یومیہ کارگزاری تخصص فی الفقہ سال اول (تلمیذ)
+                    یومیہ کارگزاری تخصص فی الفقہ والافتاء (اسباق و مطالعہ)
                   </h2>
                   <div className="text-xs sm:text-sm text-black font-urdu pt-1 font-semibold">
                     {formatUrduFullDate(date)}
@@ -1224,7 +1192,7 @@ export const AttendanceView: React.FC = () => {
                 {/* Section 1: اساتذہ کرام اسباق کارگزاری */}
                 <div className="space-y-2">
                   <div className="text-center font-bold text-sm sm:text-base text-black font-urdu">
-                    اساتذہ کرام اسباق کارگزاری
+                    اساتذہ کرام اسباق کارگزاری ({displayLessons.length} اسباق)
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs border-collapse border-2 border-black text-center font-urdu">
@@ -1240,48 +1208,56 @@ export const AttendanceView: React.FC = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {displayLessons.map((l: any, idx: number) => {
-                          const pageSpan = l.end_position && l.end_position !== l.start_position
-                            ? `${l.end_position} تا ${l.start_position}`
-                            : (l.start_position || '—');
-                          const textSpan = l.end_title
-                            ? `${l.start_title} تا ${l.end_title}`
-                            : (l.start_title || '—');
-                          return (
-                            <tr key={l.id || idx} className="hover:bg-amber-50/40">
-                              <td className="border border-black py-2 px-2 font-semibold text-black">
-                                {pick(l.teacher_name, l.teacher_name_ur)}
-                              </td>
-                              <td className="border border-black py-2 px-2">
-                                {pick(l.book_title_en, l.book_title_ur)}
-                              </td>
-                              <td className="border border-black py-2 px-2">
-                                {l.lesson_timing || (l.attendance_status === 'present' ? 'حاضر' : 'حاضر')}
-                              </td>
-                              <td className="border border-black py-2 px-3 text-start">
-                                {textSpan}
-                              </td>
-                              <td className="border border-black py-2 px-2 font-mono-code font-bold">
-                                {pageSpan}
-                              </td>
-                              <td className="border border-black py-2 px-2 font-bold">
-                                {l.daily_pages || 1}
-                              </td>
-                              <td className="border border-black py-2 px-2 font-bold">
-                                {l.cumulative_pages || '—'}
-                              </td>
-                            </tr>
-                          );
-                        })}
+                        {displayLessons.length === 0 ? (
+                          <tr>
+                            <td colSpan={7} className="border border-black py-6 text-center text-gray-500 font-urdu">
+                              اس تاریخ ({date}) کے اساتذہ کرام کے تدریسی اسباق کا کوئی ریکارڈ درج نہیں ہے۔
+                            </td>
+                          </tr>
+                        ) : (
+                          displayLessons.map((l: any, idx: number) => {
+                            const pageSpan = l.end_position && l.end_position !== l.start_position
+                              ? `${l.end_position} تا ${l.start_position}`
+                              : (l.start_position || '—');
+                            const textSpan = l.end_title
+                              ? `${l.start_title} تا ${l.end_title}`
+                              : (l.start_title || '—');
+                            return (
+                              <tr key={l.id || idx} className="hover:bg-amber-50/40">
+                                <td className="border border-black py-2 px-2 font-semibold text-black">
+                                  {pick(l.teacher_name, l.teacher_name_ur)}
+                                </td>
+                                <td className="border border-black py-2 px-2">
+                                  {pick(l.book_title_en, l.book_title_ur)}
+                                </td>
+                                <td className="border border-black py-2 px-2">
+                                  {l.lesson_timing || (l.attendance_status === 'present' ? 'حاضر' : 'حاضر')}
+                                </td>
+                                <td className="border border-black py-2 px-3 text-start">
+                                  {textSpan}
+                                </td>
+                                <td className="border border-black py-2 px-2 font-mono-code font-bold">
+                                  {pageSpan}
+                                </td>
+                                <td className="border border-black py-2 px-2 font-bold font-mono-code">
+                                  {l.daily_pages || 1}
+                                </td>
+                                <td className="border border-black py-2 px-2 font-bold font-mono-code">
+                                  {l.cumulative_pages || '—'}
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
                       </tbody>
                     </table>
                   </div>
                 </div>
 
-                {/* Section 2: مطالعہ کارگزاری (رد المحتار / شامی) */}
+                {/* Section 2: مطالعہ کارگزاری */}
                 <div className="space-y-2 pt-2">
                   <div className="text-center font-bold text-sm sm:text-base text-black font-urdu">
-                    مطالعہ کارگزاری (رد المحتار / شامی)
+                    طلباء کرام یومیہ مطالعہ کارگزاری ({displayMutala.length} اندراجات)
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs border-collapse border-2 border-black text-center font-urdu">
@@ -1296,37 +1272,50 @@ export const AttendanceView: React.FC = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {displayMutala.map((m: any, idx: number) => {
-                          const pageSpan = m.end_position && m.end_position !== m.start_position
-                            ? `${m.end_position} تا ${m.start_position}`
-                            : (m.start_position || '—');
-                          const textSpan = m.end_title
-                            ? `${m.start_title} تا ${m.end_title}`
-                            : (m.start_title || m.chapter || '—');
-                          const studentName = m.student_name_ur || m.full_name_ur || pick(m.full_name, m.full_name_ur);
-                          return (
-                            <tr key={m.id || idx} className="hover:bg-amber-50/40">
-                              <td className="border border-black py-2 px-2 font-semibold text-black">
-                                {studentName}
-                              </td>
-                              <td className="border border-black py-2 px-3 text-start">
-                                {textSpan}
-                              </td>
-                              <td className="border border-black py-2 px-2 font-mono-code font-bold">
-                                {pageSpan}
-                              </td>
-                              <td className="border border-black py-2 px-2 font-bold">
-                                {m.daily_pages || 10}
-                              </td>
-                              <td className="border border-black py-2 px-2 font-bold">
-                                {m.cumulative_pages || 350}
-                              </td>
-                              <td className="border border-black py-2 px-2 font-bold text-[#065F46]">
-                                {m.juziyat_count || m.juziyat_notes || 1}
-                              </td>
-                            </tr>
-                          );
-                        })}
+                        {displayMutala.length === 0 ? (
+                          <tr>
+                            <td colSpan={6} className="border border-black py-6 text-center text-gray-500 font-urdu">
+                              اس تاریخ ({date}) کا طلبہ کے مطالعے کا کوئی ریکارڈ درج نہیں ہے۔
+                            </td>
+                          </tr>
+                        ) : (
+                          displayMutala.map((m: any, idx: number) => {
+                            const pageSpan = m.end_position && m.end_position !== m.start_position
+                              ? `${m.end_position} تا ${m.start_position}`
+                              : (m.start_position || '—');
+                            const textSpan = m.end_title
+                              ? `${m.start_title} تا ${m.end_title}`
+                              : (m.start_title || m.chapter || '—');
+                            const studentName = m.full_name_ur || m.student_name_ur || pick(m.full_name, m.full_name_ur);
+                            return (
+                              <tr key={m.id || idx} className="hover:bg-amber-50/40">
+                                <td className="border border-black py-2 px-2 font-semibold text-black">
+                                  {studentName}{' '}
+                                  {m.student_code && (
+                                    <span className="text-[10px] text-gray-600 font-mono-code font-normal">
+                                      ({m.student_code})
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="border border-black py-2 px-3 text-start">
+                                  {textSpan}
+                                </td>
+                                <td className="border border-black py-2 px-2 font-mono-code font-bold">
+                                  {pageSpan}
+                                </td>
+                                <td className="border border-black py-2 px-2 font-bold font-mono-code">
+                                  {m.daily_pages || 1}
+                                </td>
+                                <td className="border border-black py-2 px-2 font-bold font-mono-code">
+                                  {m.cumulative_pages || '—'}
+                                </td>
+                                <td className="border border-black py-2 px-2 font-bold text-[#065F46] font-mono-code">
+                                  {m.juziyat_count || m.juziyat_notes || '—'}
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
                       </tbody>
                     </table>
                   </div>
@@ -1656,12 +1645,23 @@ export const AttendanceView: React.FC = () => {
     </div>
   )}
 
-      {/* MONTHLY REPORT (Individual Student Official PDF Sheet vs Summary Table) */}
+      {/* MONTHLY REPORT (Datesheet Register Grid vs Individual Student PDF Sheet vs Percentage Summary) */}
       {subTab === 'monthly' && (
         <div className="space-y-5">
-          {/* Monthly Mode Toggles & Student Selector */}
+          {/* Monthly Mode Toggles & Action Controls */}
           <div className="no-print flex flex-wrap items-center justify-between gap-3 bg-white p-3 rounded-lg border border-[#DCE4E0]">
             <div className="flex items-center gap-1.5 p-1 bg-[#F6F8F7] rounded-md border border-[#DCE4E0] overflow-x-auto">
+              <button
+                type="button"
+                onClick={() => setMonthlyViewMode('datesheet_grid')}
+                className={`px-3 py-1.5 text-xs font-medium rounded whitespace-nowrap transition-colors ${
+                  monthlyViewMode === 'datesheet_grid'
+                    ? 'bg-[#065F46] text-white shadow-sm'
+                    : 'text-[#5A6D65] hover:text-[#111C18]'
+                }`}
+              >
+                {lang === 'ur' ? '📋 تاریخ وار رجسٹر (ڈیٹ شیٹ فارمیٹ)' : '📋 Date-by-Date Register Grid'}
+              </button>
               <button
                 type="button"
                 onClick={() => setMonthlyViewMode('individual_register')}
@@ -1671,7 +1671,7 @@ export const AttendanceView: React.FC = () => {
                     : 'text-[#5A6D65] hover:text-[#111C18]'
                 }`}
               >
-                {lang === 'ur' ? '📄 ماہانہ انفرادی حاضری شیٹ (Official PDF Format)' : '📄 Student Monthly Register'}
+                {lang === 'ur' ? '📄 انفرادی طالب علم رجسٹر شیٹ' : '📄 Student Monthly Sheet'}
               </button>
               <button
                 type="button"
@@ -1682,16 +1682,16 @@ export const AttendanceView: React.FC = () => {
                     : 'text-[#5A6D65] hover:text-[#111C18]'
                 }`}
               >
-                {lang === 'ur' ? '📊 ماہانہ مجموعی فیصد جائزہ (تمام طلبہ)' : '📊 Monthly Percentage Summary'}
+                {lang === 'ur' ? '📊 ماہانہ مجموعی فیصد جائزہ' : '📊 Monthly Percentage Summary'}
               </button>
             </div>
 
-            {monthlyViewMode === 'individual_register' && (
-              <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap">
+              {monthlyViewMode === 'individual_register' && (
                 <select
                   value={selectedStudentId}
                   onChange={(e) => setSelectedStudentId(e.target.value)}
-                  className="rounded-md border border-[#DCE4E0] px-3 py-1.5 text-xs bg-white font-urdu min-w-[170px]"
+                  className="rounded-md border border-[#DCE4E0] px-3 py-1.5 text-xs bg-white font-urdu min-w-[180px]"
                 >
                   {(rows.length > 0 ? rows : reports?.monthlySummary || []).map((st: any) => (
                     <option key={st.student_id || st.id} value={st.student_id || st.id}>
@@ -1699,20 +1699,222 @@ export const AttendanceView: React.FC = () => {
                     </option>
                   ))}
                 </select>
+              )}
+              {monthlyViewMode === 'summary_table' && (
                 <button
                   type="button"
-                  onClick={() => window.print()}
-                  className="inline-flex items-center gap-1.5 rounded-md bg-[#0B2545] px-3.5 py-1.5 text-xs font-medium text-white hover:bg-[#103563] shadow-sm whitespace-nowrap"
+                  onClick={() =>
+                    exportToExcel(
+                      `attendance_monthly_summary_${month}`,
+                      'Monthly Attendance Summary',
+                      (reports?.monthlySummary || []).map((r: any) => ({
+                        Roll_No: r.student_code,
+                        Name: r.full_name,
+                        Name_Urdu: r.full_name_ur || '',
+                        Class: r.class_name_en,
+                        Total_Sessions: r.total_sessions,
+                        Present: r.present_count,
+                        Late: r.late_count,
+                        Leave: r.leave_count,
+                        Absent: r.absent_count,
+                        Attendance_Percentage:
+                          r.total_sessions > 0
+                            ? Math.round(((r.present_count + r.late_count) / r.total_sessions) * 100)
+                            : 0,
+                      }))
+                    )
+                  }
+                  className="inline-flex items-center gap-1.5 rounded-md border border-[#DCE4E0] bg-white px-3 py-1.5 text-xs font-medium text-[#111C18] hover:bg-[#F6F8F7]"
                 >
-                  <Printer className="h-3.5 w-3.5" />
-                  <span>{lang === 'ur' ? 'پرنٹ شیٹ (A4 Print / PDF)' : 'Print Sheet'}</span>
+                  <Download className="h-3.5 w-3.5" />
+                  <span>Excel</span>
                 </button>
-              </div>
-            )}
+              )}
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="inline-flex items-center gap-1.5 rounded-md bg-[#0B2545] px-3.5 py-1.5 text-xs font-medium text-white hover:bg-[#103563] shadow-sm whitespace-nowrap"
+              >
+                <Printer className="h-3.5 w-3.5" />
+                <span>{lang === 'ur' ? 'پرنٹ شیٹ (A4 Print / PDF)' : 'Print Sheet'}</span>
+              </button>
+            </div>
           </div>
 
-          {/* INDIVIDUAL MONTHLY REGISTER (Matching Screenshots 4 & 5 - نومبر حاضری برائے تخصص) */}
-          {monthlyViewMode === 'individual_register' ? (
+          {/* MODE A: 📋 تاریخ وار رجسٹر (ڈیٹ شیٹ گرڈ فارمیٹ - 100% Real Data) */}
+          {monthlyViewMode === 'datesheet_grid' && (
+            <div className="bg-white border-2 border-black p-4 sm:p-6 rounded-lg space-y-4 shadow-sm print:border-none print:shadow-none print:p-0">
+              {/* Header Box */}
+              <div className="text-center space-y-1 pb-2 border-b-2 border-black">
+                <div className="text-xs sm:text-sm font-urdu text-gray-700">
+                  نافع دار الافتاء و مرکز تحقیقات اسلامی — نظام تعلیمات و تخصص فی الفقہ
+                </div>
+                <h2 className="text-lg sm:text-2xl font-bold text-black font-urdu">
+                  ماہانہ تاریخ وار حاضری رجسٹر (ڈیٹ شیٹ فارمیٹ) — {formatUrduMonth(month)}
+                </h2>
+                <div className="text-xs text-black font-urdu font-semibold">
+                  بمطابق جمادی الثانی 1448ھ (کل فعال طلباء: {monthlyMatrix?.rows?.length || (reports?.monthlySummary?.length || 0)})
+                </div>
+              </div>
+
+              {loadingMatrix ? (
+                <div className="py-16 text-center text-gray-500 font-urdu text-sm">
+                  حاضری ڈیٹ شیٹ لوڈ ہو رہی ہے...
+                </div>
+              ) : (!monthlyMatrix?.rows || monthlyMatrix.rows.length === 0) ? (
+                <div className="py-16 text-center text-gray-500 font-urdu text-sm">
+                  اس مہینے کا کوئی حاضری ریکارڈ موجود نہیں ہے۔
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-[11px] border-collapse border-2 border-black text-center font-urdu">
+                      <thead>
+                        <tr className="bg-[#FEF3C7] text-black font-bold">
+                          <th rowSpan={2} className="border border-black py-2 px-1 w-8 text-center font-bold">#</th>
+                          <th rowSpan={2} className="border border-black py-2 px-1.5 w-16 text-center font-bold font-mono-code">رول نمبر</th>
+                          <th rowSpan={2} className="border border-black py-2 px-2.5 min-w-[140px] text-start font-bold">نام طالب علم</th>
+                          <th rowSpan={2} className="border border-black py-2 px-2 min-w-[110px] text-center font-bold">درجہ / کلاس</th>
+                          <th colSpan={(monthlyMatrix.days || []).length} className="border border-black py-1.5 px-1 text-center font-bold">
+                            تاریخ وار حاضری شیٹ ({formatUrduMonth(month)})
+                          </th>
+                          <th colSpan={5} className="border border-black py-1.5 px-1 text-center font-bold bg-[#E2E8F0]">
+                            ماہانہ مجموعی میزان
+                          </th>
+                        </tr>
+                        <tr className="bg-[#FEF3C7] text-black font-bold text-[10px]">
+                          {(monthlyMatrix.days || []).map((d: any) => (
+                            <th
+                              key={d.dayNumber}
+                              className={`border border-black p-0.5 w-6 min-w-[24px] max-w-[28px] text-center font-bold ${
+                                d.isSunday ? 'bg-red-100 text-red-800' : ''
+                              }`}
+                              title={`${d.dayFormatted} (${d.dayName})`}
+                            >
+                              <div className="font-mono-code text-[11px] font-bold leading-tight">{d.dayNumber}</div>
+                              <div className="text-[9px] font-normal leading-tight">{d.dayName.slice(0, 1)}</div>
+                            </th>
+                          ))}
+                          <th className="border border-black py-1 px-1.5 w-10 text-center font-bold bg-emerald-100 text-emerald-900">حاضر</th>
+                          <th className="border border-black py-1 px-1.5 w-10 text-center font-bold bg-rose-100 text-rose-900">غ/ح</th>
+                          <th className="border border-black py-1 px-1.5 w-10 text-center font-bold bg-blue-100 text-blue-900">رخصت</th>
+                          <th className="border border-black py-1 px-1.5 w-12 text-center font-bold bg-amber-100 text-amber-900">تاخیر</th>
+                          <th className="border border-black py-1 px-1.5 w-12 text-center font-bold bg-[#065F46] text-white">فیصد</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {monthlyMatrix.rows.map((r: any, idx: number) => (
+                          <tr key={r.student_id} className="hover:bg-amber-50/40">
+                            <td className="border border-black py-1 px-1 font-mono-code font-bold">{idx + 1}</td>
+                            <td className="border border-black py-1 px-1 font-mono-code font-semibold text-[#065F46]">{r.student_code}</td>
+                            <td className="border border-black py-1 px-2.5 text-start font-semibold text-black whitespace-nowrap">
+                              {pick(r.full_name, r.full_name_ur)}
+                            </td>
+                            <td className="border border-black py-1 px-1.5 text-center text-gray-700 whitespace-nowrap">
+                              {pick(r.class_name_en, r.class_name_ur)}
+                            </td>
+                            {(monthlyMatrix.days || []).map((d: any) => {
+                              const dInfo = r.days?.[d.dayNumber] || r.days?.[d.date] || { label: '—', status: 'unmarked' };
+                              if (d.isSunday || dInfo.status === 'holiday') {
+                                return (
+                                  <td
+                                    key={d.dayNumber}
+                                    className="border border-black p-0.5 text-center bg-red-50 text-red-600 font-bold text-[10px]"
+                                    title="اتوار (ہفتہ وار تعطیل)"
+                                  >
+                                    ع
+                                  </td>
+                                );
+                              }
+                              let cellClass = 'text-gray-300';
+                              if (dInfo.status === 'present') cellClass = 'font-bold text-emerald-700 bg-emerald-50/60';
+                              else if (dInfo.status === 'absent') cellClass = 'font-bold text-rose-700 bg-rose-100';
+                              else if (dInfo.status === 'leave') cellClass = 'font-bold text-blue-700 bg-blue-50';
+                              else if (dInfo.status === 'late') cellClass = 'font-bold text-amber-800 bg-amber-100';
+
+                              return (
+                                <td
+                                  key={d.dayNumber}
+                                  className={`border border-black p-0.5 text-center ${cellClass}`}
+                                  title={dInfo.lateMinutes ? `${dInfo.lateMinutes} منٹ تاخیر` : (dInfo.label || '—')}
+                                >
+                                  {dInfo.label || dInfo.code || '—'}
+                                </td>
+                              );
+                            })}
+                            <td className="border border-black py-1 px-1 text-center font-bold text-emerald-700 bg-emerald-50/50 font-mono-code">
+                              {r.totals?.presentDays ?? r.presentDays ?? 0}
+                            </td>
+                            <td className="border border-black py-1 px-1 text-center font-bold text-rose-700 bg-rose-50/50 font-mono-code">
+                              {r.totals?.absentDays ?? r.absentDays ?? 0}
+                            </td>
+                            <td className="border border-black py-1 px-1 text-center font-bold text-blue-700 bg-blue-50/50 font-mono-code">
+                              {r.totals?.leaveDays ?? r.leaveDays ?? 0}
+                            </td>
+                            <td className="border border-black py-1 px-1 text-center font-bold text-amber-800 bg-amber-50/50 font-mono-code">
+                              {(r.totals?.lateDays ?? r.lateDays ?? 0) > 0
+                                ? `${r.totals?.lateDays ?? r.lateDays} (${r.totals?.totalLateMinutes ?? r.totalLateMinutes}m)`
+                                : '0'}
+                            </td>
+                            <td className="border border-black py-1 px-1 text-center font-bold text-[#065F46] bg-emerald-50 font-mono-code">
+                              {r.totals?.percentage ?? r.percentage ?? 0}%
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Legend and Summary Strip */}
+                  <div className="flex flex-wrap items-center justify-between gap-3 text-[11px] font-urdu pt-2 border-t border-gray-300">
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <span className="font-bold text-black">رموز و علامات:</span>
+                      <span className="inline-flex items-center gap-1 font-semibold text-emerald-800">
+                        <span className="w-4 h-4 rounded bg-emerald-100 border border-emerald-300 inline-flex items-center justify-center font-bold text-[10px]">ح</span> حاضر
+                      </span>
+                      <span className="inline-flex items-center gap-1 font-semibold text-rose-800">
+                        <span className="w-4 h-4 rounded bg-rose-100 border border-rose-300 inline-flex items-center justify-center font-bold text-[10px]">غ</span> غیر حاضر
+                      </span>
+                      <span className="inline-flex items-center gap-1 font-semibold text-blue-800">
+                        <span className="w-4 h-4 rounded bg-blue-100 border border-blue-300 inline-flex items-center justify-center font-bold text-[10px]">ر</span> رخصت
+                      </span>
+                      <span className="inline-flex items-center gap-1 font-semibold text-amber-900">
+                        <span className="w-4 h-4 rounded bg-amber-100 border border-amber-300 inline-flex items-center justify-center font-bold text-[10px]">ت</span> تاخیر
+                      </span>
+                      <span className="inline-flex items-center gap-1 font-semibold text-red-700">
+                        <span className="w-4 h-4 rounded bg-red-100 border border-red-300 inline-flex items-center justify-center font-bold text-[10px]">ع</span> تعطیل (اتوار)
+                      </span>
+                    </div>
+                    <div className="text-gray-600 font-medium">
+                      نوٹ: یہ تاریخ وار گرڈ تمام یومیہ سیشنز اور باضابطہ حاضری ریکارڈز کی عکاس ہے۔
+                    </div>
+                  </div>
+
+                  {/* Official Signatures Row */}
+                  <div className="pt-6 pb-2 flex items-end justify-between px-6 sm:px-16 text-xs font-urdu text-black">
+                    <div className="text-center space-y-1">
+                      <div className="font-bold text-sm text-black">سراج الحق</div>
+                      <div className="text-gray-700 font-medium">(دستخط نگران حاضری)</div>
+                      <div className="pt-1 text-sm font-serif italic text-gray-500">سراج الحق ✍️</div>
+                    </div>
+                    <div className="text-center space-y-1">
+                      <div className="font-bold text-sm text-black">مفتی عرفان خالد صاحب</div>
+                      <div className="text-gray-700 font-medium">(دستخط ناظم تعلیمات)</div>
+                      <div className="pt-1 text-sm font-serif italic text-gray-500">عرفان خالد ✍️</div>
+                    </div>
+                    <div className="text-center space-y-1">
+                      <div className="font-bold text-sm text-black">مہر و تصدیق</div>
+                      <div className="text-gray-700 font-medium">(رئیس دار الافتاء)</div>
+                      <div className="pt-1 text-xs text-gray-400">مہر ثبت کریں ⭕</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* MODE B: 📄 انفرادی طالب علم رجسٹر شیٹ (Official Sheet - 100% Real Data) */}
+          {monthlyViewMode === 'individual_register' && (
             <div className="bg-white border-2 border-black p-6 sm:p-8 rounded-lg space-y-4 max-w-4xl mx-auto shadow-sm print:border-none print:shadow-none print:p-0">
               {/* Sheet Header */}
               <div className="flex items-center justify-between border-b-2 border-black pb-2 text-xs sm:text-sm font-urdu font-semibold text-black">
@@ -1722,9 +1924,12 @@ export const AttendanceView: React.FC = () => {
                   <span className="font-bold">
                     {studentMonthlyData?.student?.full_name_ur ||
                       (rows.find((r) => r.student_id === selectedStudentId)?.full_name_ur) ||
-                      'کلیم اللہ'}
+                      (reports?.monthlySummary?.find((r: any) => r.student_id === selectedStudentId)?.full_name_ur) ||
+                      '—'}
                   </span>{' '}
-                  ({studentMonthlyData?.student?.class_name_ur || 'تخصص فی الفقہ، سال دوم تلمیذ'})
+                  ({studentMonthlyData?.student?.class_name_ur ||
+                    (rows.find((r) => r.student_id === selectedStudentId)?.class_name_ur) ||
+                    'تخصص فی الفقہ'})
                 </div>
               </div>
 
@@ -1742,40 +1947,55 @@ export const AttendanceView: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {(studentMonthlyData?.days || []).map((d: any) => {
-                      const isSunday = d.isSunday;
-                      const sesMorning = d.sessions?.['ses-morning'] || d.sessions?.['morning_zuhr'];
-                      const sesZuhr = d.sessions?.['ses-zuhr'] || d.sessions?.['zuhr_asr'];
-                      const sesMaghrib = d.sessions?.['ses-maghrib'] || d.sessions?.['maghrib_isha'];
-                      return (
-                        <tr
-                          key={d.dayNumber}
-                          className={isSunday ? 'bg-[#E2E8F0] font-semibold text-gray-800' : 'hover:bg-amber-50/30'}
-                        >
-                          <td className="border border-black py-1.5 px-2 font-medium">{d.dayFormatted}</td>
-                          <td className="border border-black py-1.5 px-2">
-                            {isSunday ? 'چھٹی' : sesMorning ? (sesMorning.status === 'present' ? 'حاضر' : sesMorning.status === 'absent' ? 'چھٹی' : sesMorning.status === 'leave' ? 'رخصت' : 'حاضر') : 'حاضر'}
-                          </td>
-                          <td className="border border-black py-1.5 px-2">
-                            {isSunday ? 'چھٹی' : sesZuhr ? (sesZuhr.status === 'present' ? 'حاضر' : sesZuhr.status === 'absent' ? 'چھٹی' : sesZuhr.status === 'leave' ? 'رخصت' : 'حاضر') : 'حاضر'}
-                          </td>
-                          <td className="border border-black py-1.5 px-2">
-                            {isSunday ? 'چھٹی' : sesMaghrib ? (sesMaghrib.status === 'present' ? 'حاضر' : sesMaghrib.status === 'absent' ? 'چھٹی' : sesMaghrib.status === 'leave' ? 'رخصت' : 'حاضر') : 'حاضر'}
-                          </td>
-                          <td className="border border-black py-1.5 px-2">
-                            {isSunday ? '—' : d.dailyLateMinutes > 0 ? `${d.dailyLateMinutes} منٹ` : '—'}
-                          </td>
-                          <td className="border border-black py-1.5 px-2 text-[11px] text-gray-700 font-serif italic">
-                            {isSunday ? '—' : d.hasSigned ? 'کلیم اللہ' : '✍️'}
-                          </td>
-                        </tr>
-                      );
-                    })}
+                    {loadingStudentMonthly ? (
+                      <tr>
+                        <td colSpan={6} className="border border-black py-10 text-center text-gray-500 font-urdu">
+                          طالب علم کا ماہانہ ریکارڈ لوڈ ہو رہا ہے...
+                        </td>
+                      </tr>
+                    ) : (studentMonthlyData?.days || []).length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="border border-black py-10 text-center text-gray-500 font-urdu">
+                          اس مہینے کا کوئی حاضری ریکارڈ موجود نہیں ہے۔
+                        </td>
+                      </tr>
+                    ) : (
+                      (studentMonthlyData?.days || []).map((d: any) => {
+                        const isSunday = d.isSunday;
+                        const sesMorning = d.sessions?.['ses-morning'] || d.sessions?.['morning_zuhr'];
+                        const sesZuhr = d.sessions?.['ses-zuhr'] || d.sessions?.['zuhr_asr'];
+                        const sesMaghrib = d.sessions?.['ses-maghrib'] || d.sessions?.['maghrib_isha'];
+                        const studentSignName = (studentMonthlyData?.student?.full_name_ur || '').split(' ')?.[0] || 'دستخط';
+                        return (
+                          <tr
+                            key={d.dayNumber}
+                            className={isSunday ? 'bg-[#E2E8F0] font-semibold text-gray-800' : 'hover:bg-amber-50/30'}
+                          >
+                            <td className="border border-black py-1.5 px-2 font-medium">{d.dayFormatted}</td>
+                            <td className="border border-black py-1.5 px-2">
+                              {isSunday ? 'چھٹی' : sesMorning ? (sesMorning.status === 'present' ? 'حاضر' : sesMorning.status === 'absent' ? 'غیر حاضر' : sesMorning.status === 'leave' ? 'رخصت' : sesMorning.status === 'late' ? `حاضر (${sesMorning.late_minutes || 15}m)` : 'حاضر') : '—'}
+                            </td>
+                            <td className="border border-black py-1.5 px-2">
+                              {isSunday ? 'چھٹی' : sesZuhr ? (sesZuhr.status === 'present' ? 'حاضر' : sesZuhr.status === 'absent' ? 'غیر حاضر' : sesZuhr.status === 'leave' ? 'رخصت' : sesZuhr.status === 'late' ? `حاضر (${sesZuhr.late_minutes || 15}m)` : 'حاضر') : '—'}
+                            </td>
+                            <td className="border border-black py-1.5 px-2">
+                              {isSunday ? 'چھٹی' : sesMaghrib ? (sesMaghrib.status === 'present' ? 'حاضر' : sesMaghrib.status === 'absent' ? 'غیر حاضر' : sesMaghrib.status === 'leave' ? 'رخصت' : sesMaghrib.status === 'late' ? `حاضر (${sesMaghrib.late_minutes || 15}m)` : 'حاضر') : '—'}
+                            </td>
+                            <td className="border border-black py-1.5 px-2 font-mono-code font-bold">
+                              {isSunday ? '—' : d.dailyLateMinutes > 0 ? `${d.dailyLateMinutes} منٹ` : '—'}
+                            </td>
+                            <td className="border border-black py-1.5 px-2 text-[11px] text-gray-700 font-serif italic">
+                              {isSunday ? '—' : d.hasSigned ? `${studentSignName} ✍️` : '—'}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
                   </tbody>
                 </table>
               </div>
 
-              {/* Instructions and Timings Box (Screenshot 5) */}
+              {/* Instructions and Timings Box */}
               <div className="mt-3 p-3 border-2 border-black bg-white text-[11px] leading-relaxed text-black font-urdu space-y-1.5">
                 <div className="font-semibold text-center pb-1 border-b border-gray-300">
                   {studentMonthlyData?.timings?.morning || 'صبح: 8:00 بجے سے 12:00 بجے تک'}،{' '}
@@ -1788,7 +2008,7 @@ export const AttendanceView: React.FC = () => {
                 </p>
               </div>
 
-              {/* Bottom Summary Table (Screenshot 5) */}
+              {/* Bottom Summary Table */}
               <div className="overflow-x-auto pt-2">
                 <table className="w-full text-xs border-collapse border-2 border-black text-center font-urdu">
                   <thead>
@@ -1801,9 +2021,9 @@ export const AttendanceView: React.FC = () => {
                   </thead>
                   <tbody>
                     <tr>
-                      <td className="border border-black py-2.5 px-2 font-bold">{studentMonthlyData?.totals?.leaves || 0} دن</td>
-                      <td className="border border-black py-2.5 px-2 font-bold">{studentMonthlyData?.totals?.absents || 0} دن</td>
-                      <td className="border border-black py-2.5 px-2 font-bold">
+                      <td className="border border-black py-2.5 px-2 font-bold font-mono-code">{studentMonthlyData?.totals?.leaves || 0} دن</td>
+                      <td className="border border-black py-2.5 px-2 font-bold font-mono-code">{studentMonthlyData?.totals?.absents || 0} دن</td>
+                      <td className="border border-black py-2.5 px-2 font-bold font-mono-code">
                         {studentMonthlyData?.totals?.lateMinutes || 0} منٹ ({studentMonthlyData?.totals?.lates || 0} بار)
                       </td>
                       <td className="border border-black py-2.5 px-2 text-[#065F46] font-bold">تسلی بخش / دستخط نگران</td>
@@ -1812,8 +2032,10 @@ export const AttendanceView: React.FC = () => {
                 </table>
               </div>
             </div>
-          ) : (
-            /* OVERALL PERCENTAGE SUMMARY TABLE */
+          )}
+
+          {/* MODE C: 📊 ماہانہ مجموعی فیصد جائزہ (تمام طلبہ - 100% Real Data) */}
+          {monthlyViewMode === 'summary_table' && (
             <div className="rounded-lg border border-[#DCE4E0] bg-white overflow-x-auto shadow-sm">
               <table className="w-full text-xs min-w-[720px]">
                 <thead>
@@ -1829,21 +2051,29 @@ export const AttendanceView: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#EEF2F0]">
-                  {(reports?.monthlySummary || []).map((r: any) => {
-                    const pct = r.total_sessions > 0 ? Math.round(((r.present_count + r.late_count) / r.total_sessions) * 100) : 0;
-                    return (
-                      <tr key={r.student_id} className="hover:bg-[#F6F8F7]">
-                        <td className="px-4 py-3 font-mono-code font-semibold text-[#065F46] whitespace-nowrap">{r.student_code}</td>
-                        <td className="px-4 py-3 font-medium whitespace-nowrap min-w-[140px]">{pick(r.full_name, r.full_name_ur)}</td>
-                        <td className="px-4 py-3 text-[#5A6D65] whitespace-nowrap">{pick(r.class_name_en, r.class_name_ur)}</td>
-                        <td className="px-4 py-3 text-end tabular-nums text-[#15803D] whitespace-nowrap">{r.present_count}</td>
-                        <td className="px-4 py-3 text-end tabular-nums text-[#B45309] whitespace-nowrap">{r.late_count}</td>
-                        <td className="px-4 py-3 text-end tabular-nums whitespace-nowrap">{r.leave_count}</td>
-                        <td className="px-4 py-3 text-end tabular-nums text-[#B91C1C] whitespace-nowrap">{r.absent_count}</td>
-                        <td className="px-4 py-3 text-end font-bold tabular-nums text-[#065F46] whitespace-nowrap">{pct}%</td>
-                      </tr>
-                    );
-                  })}
+                  {(!reports?.monthlySummary || reports.monthlySummary.length === 0) ? (
+                    <tr>
+                      <td colSpan={8} className="py-10 text-center text-[#5A6D65]">
+                        {t('noData')}
+                      </td>
+                    </tr>
+                  ) : (
+                    (reports?.monthlySummary || []).map((r: any) => {
+                      const pct = r.total_sessions > 0 ? Math.round(((r.present_count + r.late_count) / r.total_sessions) * 100) : 0;
+                      return (
+                        <tr key={r.student_id} className="hover:bg-[#F6F8F7]">
+                          <td className="px-4 py-3 font-mono-code font-semibold text-[#065F46] whitespace-nowrap">{r.student_code}</td>
+                          <td className="px-4 py-3 font-medium whitespace-nowrap min-w-[140px]">{pick(r.full_name, r.full_name_ur)}</td>
+                          <td className="px-4 py-3 text-[#5A6D65] whitespace-nowrap">{pick(r.class_name_en, r.class_name_ur)}</td>
+                          <td className="px-4 py-3 text-end font-mono-code text-[#15803D] whitespace-nowrap">{r.present_count}</td>
+                          <td className="px-4 py-3 text-end font-mono-code text-[#B45309] whitespace-nowrap">{r.late_count}</td>
+                          <td className="px-4 py-3 text-end font-mono-code whitespace-nowrap">{r.leave_count}</td>
+                          <td className="px-4 py-3 text-end font-mono-code text-[#B91C1C] whitespace-nowrap">{r.absent_count}</td>
+                          <td className="px-4 py-3 text-end font-bold font-mono-code text-[#065F46] whitespace-nowrap">{pct}%</td>
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </div>

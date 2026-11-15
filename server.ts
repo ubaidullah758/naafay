@@ -756,7 +756,7 @@ async function startServer() {
       : [];
 
     const allDayRecords = db.prepare('SELECT * FROM attendance_records WHERE attendance_date = ?').all(date) as any[];
-    const allSessionsByStudent = new Map<string, Record<string, { id: string; status: string; remarks: string }>>();
+    const allSessionsByStudent = new Map<string, Record<string, { id: string; status: string; remarks: string; late_minutes?: number }>>();
     for (const r of allDayRecords) {
       if (!allSessionsByStudent.has(r.student_id)) {
         allSessionsByStudent.set(r.student_id, {});
@@ -1023,6 +1023,7 @@ async function startServer() {
       dailyMap.get(rec.student_id)![rec.session_id] = {
         id: rec.id,
         status: rec.status,
+        late_minutes: Number(rec.late_minutes) || 0,
         remarks: rec.remarks || '',
       };
     }
@@ -1223,6 +1224,146 @@ async function startServer() {
         },
         rules: 'جمعہ کے روز نماز جمعہ کے متصل بعد کلاس شروع ہوگی۔ نیز عصر تا مغرب تخلئی نہ ہوگی، چاہے اسباق ہوں نہ ہوں۔ کلاس میں حاضر ہوں تو آنے کا وقت اور کلاس سے جائیں تو جانے کا وقت درج کریں۔ حاضری شیٹ کی حفاظت طالب علم کی ذمہ داری ہے۔ ایک دن یا اس سے زائد وقت کی رخصت لینے کی صورت میں کم از کم پانچ دن پہلے درخواست جمع کروانا ضروری ہے۔ تاخیر یا غیر حاضری کی وجہ سے ادارہ کسی بھی قسم کی تادیبی کارروائی کا مجاز ہوگا۔'
       });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Monthly Date Sheet Register Grid (Full month date-by-date matrix for all students)
+  app.get('/api/attendance/monthly-matrix', (req: SessionRequest, res) => {
+    try {
+      const month = (req.query.month as string) || new Date().toISOString().slice(0, 7);
+      const classId = (req.query.classId as string) || '';
+
+      const [yearStr, monthStr] = month.split('-');
+      const year = parseInt(yearStr, 10);
+      const mNum = parseInt(monthStr, 10);
+      const daysCount = new Date(year, mNum, 0).getDate();
+      const urduDays = ['اتوار', 'پیر', 'منگل', 'بدھ', 'جمعرات', 'جمعہ', 'ہفتہ'];
+
+      let stuWhere = "WHERE st.status != 'withdrawn'";
+      const stuParams: any[] = [];
+      if (classId) {
+        stuWhere += ' AND st.class_id = ?';
+        stuParams.push(classId);
+      }
+      if (req.actor?.role === 'student' && req.actor.studentId) {
+        stuWhere += ' AND st.id = ?';
+        stuParams.push(req.actor.studentId);
+      }
+
+      const students = db.prepare(`
+        SELECT st.id as student_id, st.student_code, st.full_name, st.full_name_ur,
+               c.name_en as class_name_en, c.name_ur as class_name_ur
+        FROM students st
+        LEFT JOIN classes c ON c.id = st.class_id
+        ${stuWhere}
+        ORDER BY st.student_code ASC
+      `).all(...stuParams) as any[];
+
+      const records = db.prepare(`
+        SELECT ar.student_id, ar.session_id, ar.attendance_date, ar.status, ar.late_minutes
+        FROM attendance_records ar
+        WHERE ar.attendance_date LIKE ?
+      `).all(`${month}-%`) as any[];
+
+      const recordsByStudentDate: Record<string, Record<string, any[]>> = {};
+      for (const r of records) {
+        if (!recordsByStudentDate[r.student_id]) recordsByStudentDate[r.student_id] = {};
+        if (!recordsByStudentDate[r.student_id][r.attendance_date]) recordsByStudentDate[r.student_id][r.attendance_date] = [];
+        recordsByStudentDate[r.student_id][r.attendance_date].push(r);
+      }
+
+      const days = [];
+      for (let d = 1; d <= daysCount; d++) {
+        const dayStr = String(d).padStart(2, '0');
+        const fullDate = `${month}-${dayStr}`;
+        const dateObj = new Date(year, mNum - 1, d);
+        const dayOfWeek = dateObj.getDay();
+        days.push({
+          dayNumber: d,
+          date: fullDate,
+          dayFormatted: `${dayStr}/${monthStr}`,
+          dayName: urduDays[dayOfWeek],
+          isSunday: dayOfWeek === 0,
+        });
+      }
+
+      const matrixRows = students.map((st) => {
+        const stuRecords = recordsByStudentDate[st.student_id] || {};
+        const daysMap: Record<number, any> = {};
+        let presentDays = 0;
+        let absentDays = 0;
+        let leaveDays = 0;
+        let lateDays = 0;
+        let totalLateMinutes = 0;
+        let markedDays = 0;
+
+        for (let d = 1; d <= daysCount; d++) {
+          const dayStr = String(d).padStart(2, '0');
+          const fullDate = `${month}-${dayStr}`;
+          const dateObj = new Date(year, mNum - 1, d);
+          const isSunday = dateObj.getDay() === 0;
+
+          if (isSunday) {
+            daysMap[d] = { status: 'holiday', label: 'اتوار', lateMinutes: 0 };
+            continue;
+          }
+
+          const dayList = stuRecords[fullDate];
+          if (!dayList || dayList.length === 0) {
+            daysMap[d] = { status: 'unmarked', label: '—', lateMinutes: 0 };
+            continue;
+          }
+
+          markedDays++;
+          const hasAbsent = dayList.some((r: any) => r.status === 'absent');
+          const hasLeave = dayList.some((r: any) => r.status === 'leave');
+          const hasLate = dayList.some((r: any) => r.status === 'late');
+          const hasPresent = dayList.some((r: any) => r.status === 'present');
+
+          let dayLateMin = 0;
+          dayList.forEach((r: any) => {
+            if (r.status === 'late') dayLateMin += (Number(r.late_minutes) || 15);
+          });
+
+          if (hasLate) {
+            lateDays++;
+            totalLateMinutes += dayLateMin;
+            daysMap[d] = { status: 'late', label: 'ت', lateMinutes: dayLateMin };
+          } else if (hasAbsent) {
+            absentDays++;
+            daysMap[d] = { status: 'absent', label: 'غ', lateMinutes: 0 };
+          } else if (hasLeave) {
+            leaveDays++;
+            daysMap[d] = { status: 'leave', label: 'ر', lateMinutes: 0 };
+          } else if (hasPresent) {
+            presentDays++;
+            daysMap[d] = { status: 'present', label: 'ح', lateMinutes: 0 };
+          } else {
+            daysMap[d] = { status: 'unmarked', label: '—', lateMinutes: 0 };
+          }
+        }
+
+        const effectiveTotal = presentDays + absentDays + leaveDays + lateDays;
+        const pct = effectiveTotal > 0 ? Math.round(((presentDays + lateDays) / effectiveTotal) * 100) : 0;
+
+        return {
+          ...st,
+          days: daysMap,
+          totals: {
+            presentDays,
+            absentDays,
+            leaveDays,
+            lateDays,
+            totalLateMinutes,
+            markedDays,
+            percentage: pct,
+          },
+        };
+      });
+
+      res.json({ month, days, rows: matrixRows });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }

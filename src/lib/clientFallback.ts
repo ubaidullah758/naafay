@@ -44,14 +44,14 @@ function setStoredJson(key: string, val: any) {
   }
 }
 
-function getAttendanceMap(): Record<string, { id: string; status: string; remarks?: string }> {
-  const current = getStoredJson<Record<string, { id: string; status: string; remarks?: string }>>(
+function getAttendanceMap(): Record<string, { id: string; status: string; remarks?: string; late_minutes?: number }> {
+  const current = getStoredJson<Record<string, { id: string; status: string; remarks?: string; late_minutes?: number }>>(
     STORAGE_KEYS.attendance,
     {}
   );
   if (Object.keys(current).length > 0) return current;
 
-  const initialMap: Record<string, { id: string; status: string; remarks?: string }> = {};
+  const initialMap: Record<string, { id: string; status: string; remarks?: string; late_minutes?: number }> = {};
   const date = STATIC_ATTENDANCE.date || new Date().toISOString().slice(0, 10);
   for (const r of STATIC_ATTENDANCE.rows || []) {
     if (r.sessions) {
@@ -71,6 +71,10 @@ export async function handleClientFallback(url: string, options: RequestInit = {
   const parsed = new URL(url, window.location.origin);
   const pathname = parsed.pathname;
   const method = (options.method || 'GET').toUpperCase();
+  let body: any = null;
+  try {
+    if (options.body && typeof options.body === 'string') body = JSON.parse(options.body);
+  } catch {}
 
   const jsonResponse = (data: any, status = 200) => {
     return new Response(JSON.stringify(data), {
@@ -207,7 +211,7 @@ export async function handleClientFallback(url: string, options: RequestInit = {
       };
       const updated = [newStudent, ...studentsArr];
       setStoredJson(STORAGE_KEYS.students, updated);
-      return jsonResponse(newStudent, { status: 201 });
+      return jsonResponse(newStudent, 201);
     }
 
     const studentsArr = getStoredJson<any[]>(STORAGE_KEYS.students, Array.isArray(STATIC_STUDENTS) ? STATIC_STUDENTS : STATIC_STUDENTS?.students || []);
@@ -531,7 +535,7 @@ export async function handleClientFallback(url: string, options: RequestInit = {
       : baseStudents;
 
     const rows = filteredStudents.map((s: any) => {
-      const sessions: Record<string, { id: string; status: string; remarks: string }> = {};
+      const sessions: Record<string, { id: string; status: string; remarks: string; late_minutes?: number }> = {};
       const sessionIds = ['ses-morning', 'ses-zuhr', 'ses-maghrib'];
 
       for (const sesId of sessionIds) {
@@ -930,6 +934,78 @@ export async function handleClientFallback(url: string, options: RequestInit = {
       },
       rules: 'جمعہ کے روز نماز جمعہ کے متصل بعد کلاس شروع ہوگی۔ نیز عصر تا مغرب تخلئی نہ ہوگی، چاہے اسباق ہوں نہ ہوں۔ کلاس میں حاضر ہوں تو آنے کا وقت اور کلاس سے جائیں تو جانے کا وقت درج کریں۔ حاضری شیٹ کی حفاظت طالب علم کی ذمہ داری ہے۔ ایک دن یا اس سے زائد وقت کی رخصت لینے کی صورت میں کم از کم پانچ دن پہلے درخواست جمع کروانا ضروری ہے۔ تاخیر یا غیر حاضری کی وجہ سے ادارہ کسی بھی قسم کی تادیبی کارروائی کا مجاز ہوگا۔'
     });
+  }
+
+  // 22d. Monthly Matrix Grid (/api/attendance/monthly-matrix)
+  if (pathname === '/api/attendance/monthly-matrix') {
+    const month = parsed.searchParams.get('month') || '2026-11';
+    const studentsList: any[] = getStoredJson<any[]>(STORAGE_KEYS.students, Array.isArray(STATIC_STUDENTS) ? STATIC_STUDENTS : STATIC_STUDENTS?.students || []);
+    const urduDays = ['اتوار', 'پیر', 'منگل', 'بدھ', 'جمعرات', 'جمعہ', 'ہفتہ'];
+    const days = [];
+    for (let d = 1; d <= 30; d++) {
+      const dStr = String(d).padStart(2, '0');
+      const dateObj = new Date(2026, 10, d);
+      const dayOfWeek = dateObj.getDay();
+      days.push({
+        dayNumber: d,
+        date: `2026-11-${dStr}`,
+        dayFormatted: `${dStr}/11`,
+        dayName: urduDays[dayOfWeek],
+        isSunday: dayOfWeek === 0,
+      });
+    }
+
+    const rows = studentsList.map((st, idx) => {
+      const daysMap: Record<number, any> = {};
+      let presentDays = 0;
+      let absentDays = 0;
+      let leaveDays = 0;
+      let lateDays = 0;
+      let totalLateMinutes = 0;
+
+      for (let d = 1; d <= 30; d++) {
+        const dateObj = new Date(2026, 10, d);
+        const isSunday = dateObj.getDay() === 0;
+        if (isSunday) {
+          daysMap[d] = { status: 'holiday', label: 'اتوار', lateMinutes: 0 };
+        } else if (d > 16) {
+          daysMap[d] = { status: 'unmarked', label: '—', lateMinutes: 0 };
+        } else if ((d + idx) % 15 === 0) {
+          absentDays++;
+          daysMap[d] = { status: 'absent', label: 'غ', lateMinutes: 0 };
+        } else if ((d + idx) % 11 === 0) {
+          leaveDays++;
+          daysMap[d] = { status: 'leave', label: 'ر', lateMinutes: 0 };
+        } else if ((d + idx) % 6 === 0) {
+          lateDays++;
+          totalLateMinutes += 15;
+          daysMap[d] = { status: 'late', label: 'ت', lateMinutes: 15 };
+        } else {
+          presentDays++;
+          daysMap[d] = { status: 'present', label: 'ح', lateMinutes: 0 };
+        }
+      }
+      const total = presentDays + absentDays + leaveDays + lateDays;
+      const pct = total > 0 ? Math.round(((presentDays + lateDays) / total) * 100) : 0;
+      return {
+        student_id: st.id,
+        student_code: st.student_code,
+        full_name: st.full_name,
+        full_name_ur: st.full_name_ur,
+        class_name_ur: st.class_name_ur || 'تخصص فی الفقہ',
+        days: daysMap,
+        totals: {
+          presentDays,
+          absentDays,
+          leaveDays,
+          lateDays,
+          totalLateMinutes,
+          percentage: pct,
+        },
+      };
+    });
+
+    return jsonResponse({ month, days, rows });
   }
 
   // 23. Mutala Summary (/api/mutala/summary) -> Returns Array directly!
