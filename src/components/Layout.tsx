@@ -25,7 +25,7 @@ import {
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth, UserRole } from '../context/AuthContext';
 import { apiFetch } from '../lib/api';
-import { formatPakistaniMobile } from '../lib/phone';
+import { formatPakistaniMobile, matchesPhoneSearch } from '../lib/phone';
 
 export type NavSection =
   | 'admin_panel'
@@ -125,7 +125,19 @@ export const Layout: React.FC<LayoutProps> = ({ activeSection, onNavigate, onOpe
           apiFetch(`/api/fatwa/dashboard?search=${encodeURIComponent(q)}`, { signal: controller.signal }, user),
         ]);
         if (controller.signal.aborted) return;
-        setSearchResults({ ...acad, fatwas: (fatwa.questions || []).slice(0, 5) });
+        const matchedFatwas = (fatwa?.questions || []).filter((fq: any) => {
+          const needle = q.toLowerCase();
+          return (
+            (fq.fatwa_code || '').toLowerCase().includes(needle) ||
+            (fq.issued_fatwa_number || '').toLowerCase().includes(needle) ||
+            (fq.subject_title || '').toLowerCase().includes(needle) ||
+            (fq.subject_title_ur || '').includes(needle) ||
+            (fq.question_text || '').includes(needle) ||
+            (fq.questioner_name || '').toLowerCase().includes(needle) ||
+            matchesPhoneSearch(fq.questioner_phone, needle)
+          );
+        });
+        setSearchResults({ ...acad, fatwas: matchedFatwas.slice(0, 5) });
       } catch (err: any) {
         // Aborted requests are expected while the user is still typing.
         if (err?.name !== 'AbortError' && !controller.signal.aborted) setSearchResults(null);

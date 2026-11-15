@@ -417,17 +417,22 @@ export async function handleClientFallback(url: string, options: RequestInit = {
   if (pathname === '/api/attendance/quick-mark' && method === 'POST') {
     try {
       const body = typeof options.body === 'string' ? JSON.parse(options.body) : {};
-      const { studentId, sessionId, attendanceDate, status, remarks } = body;
+      const { studentId, sessionId, status, remarks } = body;
+      const attDate = body.attendanceDate || body.date || new Date().toISOString().slice(0, 10);
       const attMap = getAttendanceMap();
       const recId = 'loc-rec-' + Math.random().toString(36).slice(2, 9);
-      const key = `${studentId}_${attendanceDate}_${sessionId}`;
+      const key = `${studentId}_${attDate}_${sessionId}`;
 
-      attMap[key] = { id: recId, status, remarks: remarks || '' };
+      attMap[key] = {
+        id: attMap[key]?.id || recId,
+        status: status || attMap[key]?.status || 'present',
+        remarks: remarks !== undefined ? remarks : (attMap[key]?.remarks || ''),
+      };
       setStoredJson(STORAGE_KEYS.attendance, attMap);
 
       return jsonResponse({
         success: true,
-        recordId: recId,
+        recordId: attMap[key].id,
         updated: true,
         message: 'Attendance saved successfully',
       });
@@ -545,9 +550,38 @@ export async function handleClientFallback(url: string, options: RequestInit = {
 
   // 18. Fatwa Dashboard (/api/fatwa/dashboard)
   if (pathname === '/api/fatwa/dashboard') {
-    return jsonResponse(STATIC_FATWA_DASHBOARD || {
-      counts: {
-        totalQuestions: 6,
+    const qSearch = (parsed.searchParams.get('search') || '').toLowerCase().trim();
+    const qCategory = parsed.searchParams.get('categoryId') || '';
+    const qStatus = parsed.searchParams.get('status') || '';
+    let questions: any[] = STATIC_FATWA_DASHBOARD?.questions || [];
+
+    if (qSearch) {
+      questions = questions.filter((fq: any) => {
+        return (
+          (fq.fatwa_code || '').toLowerCase().includes(qSearch) ||
+          (fq.issued_fatwa_number || '').toLowerCase().includes(qSearch) ||
+          (fq.subject_title || '').toLowerCase().includes(qSearch) ||
+          (fq.subject_title_ur || '').includes(qSearch) ||
+          (fq.question_text || '').includes(qSearch) ||
+          (fq.questioner_name || '').toLowerCase().includes(qSearch) ||
+          matchesPhoneSearch(fq.questioner_phone, qSearch)
+        );
+      });
+    }
+    if (qCategory) {
+      questions = questions.filter((fq: any) => fq.category_id === qCategory);
+    }
+    if (qStatus) {
+      if (qStatus === 'published') {
+        questions = questions.filter((fq: any) => fq.publication_status === 'published');
+      } else {
+        questions = questions.filter((fq: any) => fq.status === qStatus);
+      }
+    }
+
+    return jsonResponse({
+      counts: STATIC_FATWA_DASHBOARD?.counts || {
+        totalQuestions: questions.length,
         newQuestions: 1,
         assignedQuestions: 0,
         underResearch: 1,
@@ -558,7 +592,7 @@ export async function handleClientFallback(url: string, options: RequestInit = {
         issuedFatwas: 2,
         publishedFatwas: 2,
       },
-      questions: STATIC_FATWA_DASHBOARD?.questions || [],
+      questions,
     });
   }
 

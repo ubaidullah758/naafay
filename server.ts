@@ -2184,9 +2184,20 @@ async function startServer() {
       params.push(profileId);
     }
     if (search) {
-      where += ' AND (fq.fatwa_code LIKE ? OR fq.issued_fatwa_number LIKE ? OR fq.subject_title LIKE ? OR fq.subject_title_ur LIKE ? OR fq.question_text LIKE ?)';
+      const cleanSearch = search.replace(/[-\s+]/g, '');
+      where += ` AND (
+        fq.fatwa_code LIKE ? OR
+        fq.issued_fatwa_number LIKE ? OR
+        fq.subject_title LIKE ? OR
+        fq.subject_title_ur LIKE ? OR
+        fq.question_text LIKE ? OR
+        fq.questioner_name LIKE ? OR
+        fq.questioner_phone LIKE ? OR
+        REPLACE(REPLACE(REPLACE(fq.questioner_phone, '-', ''), ' ', ''), '+92', '0') LIKE ?
+      )`;
       const like = `%${search}%`;
-      params.push(like, like, like, like, like);
+      const cleanLike = `%${cleanSearch}%`;
+      params.push(like, like, like, like, like, like, like, cleanLike);
     }
     if (categoryId) {
       where += ' AND fq.category_id = ?';

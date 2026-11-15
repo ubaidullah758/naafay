@@ -24,6 +24,7 @@ export const AttendanceView: React.FC = () => {
   const [rows, setRows] = useState<any[]>([]);
   // remarks draft per student (saved together with the next status selection)
   const [remarksDraft, setRemarksDraft] = useState<Record<string, string>>({});
+  const [savingRemarks, setSavingRemarks] = useState<Record<string, boolean>>({});
   // Which session cell has its status menu open, and which one is saving.
   const [openCell, setOpenCell] = useState<{ studentId: string; sessionId: string } | null>(null);
   const [savingCell, setSavingCell] = useState<{ studentId: string; sessionId: string } | null>(null);
@@ -242,6 +243,59 @@ export const AttendanceView: React.FC = () => {
       setError(err?.message || 'Failed to save attendance');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSaveRemarks = async (r: any) => {
+    const text = remarksDraft[r.student_id];
+    if (text === undefined) return;
+    setSavingRemarks((prev) => ({ ...prev, [r.student_id]: true }));
+
+    const targetSessionId =
+      sessionColumns.find((sc) => r.sessions?.[sc.id])?.id ||
+      sessionColumns[0]?.id ||
+      'ses-morning';
+    const currentStatus = r.sessions?.[targetSessionId]?.status || 'present';
+
+    setRows((prev) =>
+      prev.map((row) => {
+        if (row.student_id !== r.student_id) return row;
+        return {
+          ...row,
+          sessions: {
+            ...(row.sessions || {}),
+            [targetSessionId]: {
+              ...(row.sessions?.[targetSessionId] || { id: `att-${Date.now()}` }),
+              status: currentStatus,
+              remarks: text,
+            },
+          },
+        };
+      })
+    );
+
+    try {
+      await apiFetch(
+        '/api/attendance/quick-mark',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            studentId: r.student_id,
+            classId: r.class_id || 'cls-tak1',
+            batchId: r.batch_id,
+            sessionId: targetSessionId,
+            date,
+            attendanceDate: date,
+            status: currentStatus,
+            remarks: text,
+          }),
+        },
+        user
+      );
+    } catch (err: any) {
+      console.warn('Failed to save remarks', err);
+    } finally {
+      setSavingRemarks((prev) => ({ ...prev, [r.student_id]: false }));
     }
   };
 
@@ -666,20 +720,50 @@ export const AttendanceView: React.FC = () => {
                         })}
 
                         <td className="px-3 py-3">
-                          {existingRemarks && (
-                            <span className="block text-[#5A6D65] mb-1">{existingRemarks}</span>
-                          )}
-                          {hasPending && (
+                          <div className="flex items-center gap-1.5 min-w-[150px] max-w-[240px]">
                             <input
                               type="text"
-                              value={remarksValue}
-                              onChange={(e) =>
-                                setRemarksDraft((prev) => ({ ...prev, [r.student_id]: e.target.value }))
+                              value={
+                                remarksDraft[r.student_id] !== undefined
+                                  ? remarksDraft[r.student_id]
+                                  : (existingRemarks || '')
                               }
-                              placeholder={t('remarks')}
-                              className="w-full min-w-[110px] rounded border border-[#DCE4E0] px-2.5 py-1 text-xs"
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setRemarksDraft((prev) => ({ ...prev, [r.student_id]: val }));
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  handleSaveRemarks(r);
+                                }
+                              }}
+                              onBlur={() => {
+                                if (
+                                  remarksDraft[r.student_id] !== undefined &&
+                                  remarksDraft[r.student_id] !== existingRemarks
+                                ) {
+                                  handleSaveRemarks(r);
+                                }
+                              }}
+                              placeholder={lang === 'ur' ? 'کیفیت / نوٹ درج کریں...' : 'Enter note / remarks...'}
+                              className="w-full rounded border border-[#DCE4E0] bg-white px-2.5 py-1 text-xs text-[#111C18] placeholder-[#94A3B8] focus:border-[#065F46] focus:outline-none focus:ring-1 focus:ring-[#065F46]"
                             />
-                          )}
+                            {remarksDraft[r.student_id] !== undefined &&
+                              remarksDraft[r.student_id] !== existingRemarks && (
+                                <button
+                                  type="button"
+                                  disabled={savingRemarks[r.student_id]}
+                                  onClick={() => handleSaveRemarks(r)}
+                                  className="shrink-0 rounded bg-[#065F46] px-2 py-1 text-[11px] font-semibold text-white hover:bg-[#044E38] transition-colors shadow-sm whitespace-nowrap"
+                                  title={lang === 'ur' ? 'نوٹ محفوظ کریں' : 'Save note'}
+                                >
+                                  {savingRemarks[r.student_id]
+                                    ? (lang === 'ur' ? '...' : '...')
+                                    : (lang === 'ur' ? 'محفوظ' : 'Save')}
+                                </button>
+                              )}
+                          </div>
                         </td>
                       </tr>
                     );
