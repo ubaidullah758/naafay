@@ -22,6 +22,8 @@ const STORAGE_KEYS = {
   attendance: 'naafay_local_attendance',
   adminOverview: 'naafay_local_admin_overview',
   portalData: 'naafay_local_portal_data',
+  schedule: 'naafay_local_schedule',
+  students: 'naafay_local_students',
 };
 
 function getStoredJson<T>(key: string, defaultValue: T): T {
@@ -113,7 +115,59 @@ export async function handleClientFallback(url: string, options: RequestInit = {
 
   // 6. Lookups (/api/lookups)
   if (pathname === '/api/lookups') {
-    return jsonResponse(STATIC_LOOKUPS);
+    const customClasses = getStoredJson<any[]>('naafay_custom_classes', []);
+    const customYears = getStoredJson<any[]>('naafay_custom_years', []);
+    const customBatches = getStoredJson<any[]>('naafay_custom_batches', []);
+    return jsonResponse({
+      ...STATIC_LOOKUPS,
+      classes: [...(STATIC_LOOKUPS.classes || []), ...customClasses],
+      academicYears: [...(STATIC_LOOKUPS.academicYears || []), ...customYears],
+      batches: [...(STATIC_LOOKUPS.batches || []), ...customBatches],
+    });
+  }
+
+  if (pathname === '/api/classes' && method === 'POST') {
+    const b = body || {};
+    const newClass = {
+      id: `cls-${Date.now().toString(36)}`,
+      code: b.code || `CLS-${Date.now().toString().slice(-4)}`,
+      name_en: b.name_en || b.name_ur || 'New Class',
+      name_ur: b.name_ur || b.name || 'نئی کلاس',
+      level_order: 10,
+    };
+    const current = getStoredJson<any[]>('naafay_custom_classes', []);
+    current.push(newClass);
+    setStoredJson('naafay_custom_classes', current);
+    return jsonResponse(newClass, 201);
+  }
+
+  if (pathname === '/api/academic-years' && method === 'POST') {
+    const b = body || {};
+    const newYear = {
+      id: `ay-${Date.now().toString(36)}`,
+      code: b.code || `AY-${Date.now().toString().slice(-4)}`,
+      title_en: b.title_en || b.title_ur || 'New Academic Year',
+      title_ur: b.title_ur || b.title || 'نیا تعلیمی سال',
+      is_current: 0,
+    };
+    const current = getStoredJson<any[]>('naafay_custom_years', []);
+    current.push(newYear);
+    setStoredJson('naafay_custom_years', current);
+    return jsonResponse(newYear, 201);
+  }
+
+  if (pathname === '/api/batches' && method === 'POST') {
+    const b = body || {};
+    const newBatch = {
+      id: `bat-${Date.now().toString(36)}`,
+      class_id: b.class_id || '',
+      name_en: b.name_en || b.name_ur || 'New Batch',
+      name_ur: b.name_ur || b.name || 'نیا گروپ',
+    };
+    const current = getStoredJson<any[]>('naafay_custom_batches', []);
+    current.push(newBatch);
+    setStoredJson('naafay_custom_batches', current);
+    return jsonResponse(newBatch, 201);
   }
 
   // 7. Dashboard (/api/dashboard)
@@ -123,7 +177,40 @@ export async function handleClientFallback(url: string, options: RequestInit = {
 
   // 8. Students List (/api/students) -> Returns Array directly!
   if (pathname === '/api/students') {
-    const studentsArr = Array.isArray(STATIC_STUDENTS) ? STATIC_STUDENTS : STATIC_STUDENTS?.students || [];
+    if (method === 'POST') {
+      const b = typeof options.body === 'string' ? JSON.parse(options.body) : {};
+      const studentsArr = getStoredJson<any[]>(STORAGE_KEYS.students, Array.isArray(STATIC_STUDENTS) ? STATIC_STUDENTS : STATIC_STUDENTS?.students || []);
+      const newId = 'stu-' + Date.now();
+      const nextNum = studentsArr.length + 1;
+      const studentCode = `ST-${String(nextNum).padStart(3, '0')}`;
+      const newStudent = {
+        id: newId,
+        student_code: studentCode,
+        full_name: b.full_name || b.full_name_ur || 'نیا طالب علم',
+        full_name_ur: b.full_name_ur || b.full_name || 'نیا طالب علم',
+        father_name: b.father_name || b.father_name_ur || '—',
+        father_name_ur: b.father_name_ur || b.father_name || '—',
+        date_of_birth: b.date_of_birth || '2002-01-01',
+        phone: b.phone || '—',
+        guardian_phone: b.guardian_phone || b.phone || '—',
+        email: b.email || '',
+        address: b.address || '',
+        address_ur: b.address_ur || b.address || '',
+        previous_education: b.previous_education || '',
+        previous_education_ur: b.previous_education_ur || '',
+        admission_date: b.admission_date || new Date().toISOString().slice(0, 10),
+        academic_year_id: b.academic_year_id || 'ay-1447',
+        class_id: b.class_id || 'cls-tak1',
+        batch_id: b.batch_id || '',
+        status: b.status || 'active',
+        photo_url: b.photo_url || '',
+      };
+      const updated = [newStudent, ...studentsArr];
+      setStoredJson(STORAGE_KEYS.students, updated);
+      return jsonResponse(newStudent, { status: 201 });
+    }
+
+    const studentsArr = getStoredJson<any[]>(STORAGE_KEYS.students, Array.isArray(STATIC_STUDENTS) ? STATIC_STUDENTS : STATIC_STUDENTS?.students || []);
     const qSearch = (parsed.searchParams.get('search') || '').toLowerCase().trim();
     const qClassId = parsed.searchParams.get('classId');
     const qStatus = parsed.searchParams.get('status');
@@ -159,7 +246,16 @@ export async function handleClientFallback(url: string, options: RequestInit = {
   // 9. Single Student Detail (/api/students/:id)
   if (pathname.startsWith('/api/students/')) {
     const stuId = decodeURIComponent(pathname.replace('/api/students/', '').split('/')[0]);
-    const studentsList: any[] = Array.isArray(STATIC_STUDENTS) ? STATIC_STUDENTS : STATIC_STUDENTS?.students || [];
+    const studentsList: any[] = getStoredJson<any[]>(STORAGE_KEYS.students, Array.isArray(STATIC_STUDENTS) ? STATIC_STUDENTS : STATIC_STUDENTS?.students || []);
+    if (method === 'PUT') {
+      const b = typeof options.body === 'string' ? JSON.parse(options.body) : {};
+      const idx = studentsList.findIndex((s) => s.id === stuId || s.student_code === stuId);
+      if (idx !== -1) {
+        studentsList[idx] = { ...studentsList[idx], ...b };
+        setStoredJson(STORAGE_KEYS.students, studentsList);
+        return jsonResponse(studentsList[idx]);
+      }
+    }
     const rawFound = studentsList.find((s) => s.id === stuId || s.student_code === stuId) || studentsList[0] || {};
     const found = {
       ...rawFound,
@@ -354,17 +450,73 @@ export async function handleClientFallback(url: string, options: RequestInit = {
   }
 
   // 10c. Schedule (/api/schedule)
-  if (pathname === '/api/schedule') {
-    const qClassId = parsed.searchParams.get('classId');
-    const qTeacherId = parsed.searchParams.get('teacherId');
+  if (pathname === '/api/schedule' || pathname.startsWith('/api/schedule/')) {
     const teachersList: any[] = Array.isArray(STATIC_TEACHERS) ? STATIC_TEACHERS : [];
-    let allAssignments: any[] = [];
-    for (const t of teachersList) {
-      if (t.assignments) allAssignments.push(...t.assignments);
+    let storedSched = getStoredJson<any[]>(STORAGE_KEYS.schedule, []);
+    if (!storedSched || storedSched.length === 0) {
+      storedSched = [];
+      for (const t of teachersList) {
+        if (t.assignments) storedSched.push(...t.assignments);
+      }
+      setStoredJson(STORAGE_KEYS.schedule, storedSched);
     }
-    if (qClassId) allAssignments = allAssignments.filter((a) => a.class_id === qClassId);
-    if (qTeacherId) allAssignments = allAssignments.filter((a) => a.teacher_id === qTeacherId);
-    return jsonResponse(allAssignments);
+
+    if (method === 'GET' && pathname === '/api/schedule') {
+      const qClassId = parsed.searchParams.get('classId');
+      const qTeacherId = parsed.searchParams.get('teacherId');
+      let result = [...storedSched];
+      if (qClassId) result = result.filter((a) => a.class_id === qClassId);
+      if (qTeacherId) result = result.filter((a) => a.teacher_id === qTeacherId);
+      return jsonResponse(result);
+    }
+
+    if (method === 'POST' && pathname === '/api/schedule') {
+      const b = body || {};
+      const newId = `ta-${Date.now()}`;
+      const matchedTeacher = teachersList.find((t) => t.id === b.teacher_id);
+      const newEntry = {
+        id: newId,
+        teacher_id: b.teacher_id,
+        teacher_code: matchedTeacher?.teacher_code || 'TCH-001',
+        teacher_name: matchedTeacher?.full_name || 'Mufti Salman',
+        teacher_name_ur: matchedTeacher?.full_name_ur || 'مفتی سلمان',
+        class_id: b.class_id,
+        class_name_ur: b.class_id === 'cls-tak1' ? 'تخصص فی الفقہ — سالِ اول' : 'تخصص فی الفقہ — سالِ دوم',
+        subject_id: b.subject_id,
+        subject_name_ur: b.subject_id === 'sub-fiqh' ? 'فقہِ حنفی' : 'اصولِ افتاء',
+        book_id: b.book_id || null,
+        book_title_ur: b.book_id === 'bk-radd' ? 'رد المحتار (فتاویٰ شامی)' : 'کتاب',
+        session_id: b.session_id || 'ses-morning',
+        session_name_ur: b.session_id === 'ses-morning' ? 'صبح تا ظہر' : (b.session_id === 'ses-zuhr' ? 'ظہر تا عصر' : 'مغرب تا عشاء'),
+        start_time: b.start_time || '09:00',
+        end_time: b.end_time || '10:00',
+        days_of_week: b.days_of_week || 'ہفتہ تا بدھ',
+        room_name: b.room_name || 'درسگاہ ۱',
+      };
+      storedSched.push(newEntry);
+      setStoredJson(STORAGE_KEYS.schedule, storedSched);
+      return jsonResponse(newEntry, 201);
+    }
+
+    const schedMatch = pathname.match(/^\/api\/schedule\/([^/]+)$/);
+    if (schedMatch) {
+      const schedId = schedMatch[1];
+      if (method === 'PUT') {
+        const b = body || {};
+        const idx = storedSched.findIndex((s) => s.id === schedId);
+        if (idx >= 0) {
+          storedSched[idx] = { ...storedSched[idx], ...b };
+          setStoredJson(STORAGE_KEYS.schedule, storedSched);
+          return jsonResponse(storedSched[idx]);
+        }
+        return jsonResponse({ error: 'Schedule slot not found' }, 404);
+      }
+      if (method === 'DELETE') {
+        storedSched = storedSched.filter((s) => s.id !== schedId);
+        setStoredJson(STORAGE_KEYS.schedule, storedSched);
+        return jsonResponse({ success: true, message: 'Deleted schedule slot' });
+      }
+    }
   }
 
   // 11. Attendance Sheet (/api/attendance)
@@ -390,6 +542,7 @@ export async function handleClientFallback(url: string, options: RequestInit = {
             id: existing.id,
             status: existing.status,
             remarks: existing.remarks || '',
+            late_minutes: existing.late_minutes !== undefined ? existing.late_minutes : (existing.status === 'late' ? 15 : 0),
           };
         }
       }
@@ -427,6 +580,7 @@ export async function handleClientFallback(url: string, options: RequestInit = {
         id: attMap[key]?.id || recId,
         status: status || attMap[key]?.status || 'present',
         remarks: remarks !== undefined ? remarks : (attMap[key]?.remarks || ''),
+        late_minutes: body.lateMinutes !== undefined ? Number(body.lateMinutes) : (status === 'late' ? 15 : (attMap[key]?.late_minutes || 0)),
       };
       setStoredJson(STORAGE_KEYS.attendance, attMap);
 
@@ -636,7 +790,146 @@ export async function handleClientFallback(url: string, options: RequestInit = {
 
   // 22. Mutala / Study Logs (/api/mutala) -> Returns Array directly!
   if (pathname === '/api/mutala') {
+    if (method === 'POST') {
+      const body = typeof options.body === 'string' ? JSON.parse(options.body) : {};
+      return jsonResponse({ id: 'mut-' + Date.now(), ...body });
+    }
     return jsonResponse(Array.isArray(STATIC_MUTALA) ? STATIC_MUTALA : []);
+  }
+  if (pathname.startsWith('/api/mutala/') && (method === 'PUT' || method === 'DELETE')) {
+    return jsonResponse({ success: true, deleted: true });
+  }
+
+  // 22b. Per-Student Monthly Mutala Register (/api/mutala/student-monthly)
+  if (pathname === '/api/mutala/student-monthly') {
+    const sId = parsed.searchParams.get('studentId') || 'stu-1';
+    const month = parsed.searchParams.get('month') || '2026-11';
+    const studentsList: any[] = Array.isArray(STATIC_STUDENTS) ? STATIC_STUDENTS : [];
+    const foundStu = studentsList.find((s) => s.id === sId) || studentsList[0] || { id: 'stu-1', full_name_ur: 'محمد فرقان', student_code: 'ST-001', class_name_ur: 'تخصص فی الافتاء، سال اول، تلمیذ' };
+    const urduDays = ['اتوار', 'پیر', 'منگل', 'بدھ', 'جمعرات', 'جمعہ', 'ہفتہ'];
+    const days = [];
+    for (let d = 1; d <= 30; d++) {
+      const dStr = String(d).padStart(2, '0');
+      const dateObj = new Date(2026, 10, d);
+      const dayOfWeek = dateObj.getDay();
+      const isSunday = dayOfWeek === 0;
+      const dayName = urduDays[dayOfWeek];
+      days.push({
+        dayNumber: d,
+        date: `2026-11-${dStr}`,
+        dayFormatted: `${dStr}/11 - ${dayName}`,
+        dayName,
+        isSunday,
+        entries: d % 7 !== 0 ? [{
+          id: `mut-${d}`,
+          book_title_ur: 'رد المحتار علی الدر المختار (شامی)',
+          maktaba: 'مکتبہ رشیدیہ',
+          chapter: 'کتاب البیوع / باب خیار الشرط',
+          start_title: 'قال المصنف رحمہ اللہ: البیع شرعاً...',
+          end_title: 'انتہی الکلام فی المسئلۃ الثالثۃ',
+          start_position: String(20 + d * 4),
+          end_position: String(20 + d * 4 + 5),
+          daily_pages: 6,
+          cumulative_pages: 6 * d,
+          study_details: 'خیارِ شرط کے لزوم اور مدت کے فقہی دلائل کا تفصیلی مطالعہ',
+          juziyat_notes: 'شامی ص ۲۲ پر خیار شرط کے تین دن سے زائد ہونے کی بحث اور صاحبین کا موقف مع تخریج جزئیات',
+          status: 'approved',
+          reviewer_name: 'مفتی وارث نصیب'
+        }] : [],
+        primaryEntry: d % 7 !== 0 ? {
+          id: `mut-${d}`,
+          book_title_ur: 'رد المحتار علی الدر المختار (شامی)',
+          maktaba: 'مکتبہ رشیدیہ',
+          chapter: 'کتاب البیوع / باب خیار الشرط',
+          start_title: 'قال المصنف رحمہ اللہ: البیع شرعاً...',
+          end_title: 'انتہی الکلام فی المسئلۃ الثالثۃ',
+          start_position: String(20 + d * 4),
+          end_position: String(20 + d * 4 + 5),
+          daily_pages: 6,
+          cumulative_pages: 6 * d,
+          study_details: 'خیارِ شرط کے لزوم اور مدت کے فقہی دلائل کا تفصیلی مطالعہ',
+          juziyat_notes: 'شامی ص ۲۲ پر خیار شرط کے تین دن سے زائد ہونے کی بحث اور صاحبین کا موقف مع تخریج جزئیات',
+          status: 'approved',
+          reviewer_name: 'مفتی وارث نصیب'
+        } : null
+      });
+    }
+    return jsonResponse({
+      student: foundStu,
+      month,
+      hijriMonth: 'جمادی الثانی 1448ھ',
+      days,
+      instructions: 'مطالعے کی یومیہ حاضری درج کرتے وقت درج ذیل امور کا خیال رکھیں: مطالعے کا آغاز جس عبارت سے کیا گیا، وہ تحریر کریں۔ مطالعے کا اختتام جس عبارت پر ہوا، وہ بھی واضح طور پر لکھیں۔ ابتدائی اور انتہائی صفحہ نمبر اور جزئیات کی تعداد ضرور درج کریں۔ ہر دن کی رپورٹ اسی دن مکمل اور واضح انداز میں لکھیں۔',
+      summaryByBook: [{
+        book_id: 'bk-radd',
+        title_ur: 'رد المحتار علی الدر المختار (شامی)',
+        maktaba: 'مکتبہ رشیدیہ',
+        first_start_title: 'کتاب البیوع، فصل فی التعریف',
+        last_end_title: 'باب الخیارات، خاتمۃ',
+        first_start_pos: '۲۰',
+        last_end_pos: '۱۶۵',
+        monthly_total_pages: 145,
+        total_entries: 25,
+      }]
+    });
+  }
+
+  // 22c. Per-Student Monthly Attendance Register (/api/attendance/student-monthly)
+  if (pathname === '/api/attendance/student-monthly') {
+    const sId = parsed.searchParams.get('studentId') || 'stu-1';
+    const month = parsed.searchParams.get('month') || '2026-11';
+    const studentsList: any[] = Array.isArray(STATIC_STUDENTS) ? STATIC_STUDENTS : [];
+    const foundStu = studentsList.find((s) => s.id === sId) || studentsList[0] || { id: 'stu-1', full_name_ur: 'کلیم اللہ', student_code: 'ST-001', class_name_ur: 'تخصص فی الفقہ، سال دوم تلمیذ' };
+    const urduDays = ['اتوار', 'پیر', 'منگل', 'بدھ', 'جمعرات', 'جمعہ', 'ہفتہ'];
+    const sessions = [
+      { id: 'ses-morning', code: 'morning_zuhr', name_ur: 'صبح تا ظہر', start_time: '08:00', end_time: '12:00' },
+      { id: 'ses-zuhr', code: 'zuhr_asr', name_ur: 'ظہر تا عصر', start_time: '14:00', end_time: 'عصر' },
+      { id: 'ses-maghrib', code: 'maghrib_isha', name_ur: 'مغرب تا عشاء', start_time: 'مغرب + 3m', end_time: '20:00' }
+    ];
+    const days = [];
+    for (let d = 1; d <= 30; d++) {
+      const dStr = String(d).padStart(2, '0');
+      const dateObj = new Date(2026, 10, d);
+      const dayOfWeek = dateObj.getDay();
+      const isSunday = dayOfWeek === 0;
+      const dayName = urduDays[dayOfWeek];
+      const isLate = d === 5 || d === 18;
+      const isLeave = d === 12;
+      days.push({
+        dayNumber: d,
+        date: `2026-11-${dStr}`,
+        dayFormatted: `${dStr}/11 - ${dayName}`,
+        dayName,
+        isSunday,
+        sessions: {
+          'ses-morning': { status: isSunday ? 'present' : isLeave ? 'leave' : isLate ? 'late' : 'present', late_minutes: isLate ? 15 : 0 },
+          'ses-zuhr': { status: isSunday ? 'present' : isLeave ? 'leave' : 'present', late_minutes: 0 },
+          'ses-maghrib': { status: isSunday ? 'present' : isLeave ? 'leave' : 'present', late_minutes: 0 }
+        },
+        dailyLateMinutes: isLate ? 15 : 0,
+        hasSigned: !isLeave
+      });
+    }
+    return jsonResponse({
+      student: foundStu,
+      month,
+      hijriMonth: 'جمادی الثانی 1448ھ',
+      sessions,
+      days,
+      totals: {
+        leaves: 1,
+        absents: 0,
+        lates: 2,
+        lateMinutes: 30,
+        presents: 27
+      },
+      timings: {
+        morning: 'صبح: 8:00 بجے سے 12:00 بجے تک',
+        zuhr: 'ظہر: 2:00 بجے سے عصر کی اذان تک',
+        maghrib: 'مغرب: مغرب کا وقت داخل ہونے کے تین منٹ بعد سے رات 8:00 بجے تک (اس دورانیے میں کھانا اور نماز شامل نہیں)'
+      },
+      rules: 'جمعہ کے روز نماز جمعہ کے متصل بعد کلاس شروع ہوگی۔ نیز عصر تا مغرب تخلئی نہ ہوگی، چاہے اسباق ہوں نہ ہوں۔ کلاس میں حاضر ہوں تو آنے کا وقت اور کلاس سے جائیں تو جانے کا وقت درج کریں۔ حاضری شیٹ کی حفاظت طالب علم کی ذمہ داری ہے۔ ایک دن یا اس سے زائد وقت کی رخصت لینے کی صورت میں کم از کم پانچ دن پہلے درخواست جمع کروانا ضروری ہے۔ تاخیر یا غیر حاضری کی وجہ سے ادارہ کسی بھی قسم کی تادیبی کارروائی کا مجاز ہوگا۔'
+    });
   }
 
   // 23. Mutala Summary (/api/mutala/summary) -> Returns Array directly!
@@ -644,9 +937,71 @@ export async function handleClientFallback(url: string, options: RequestInit = {
     return jsonResponse(Array.isArray(STATIC_MUTALA_SUMMARY) ? STATIC_MUTALA_SUMMARY : []);
   }
 
+  // 23b. Teacher Monthly Lessons Register (/api/lessons/teacher-monthly)
+  if (pathname === '/api/lessons/teacher-monthly') {
+    const tId = parsed.searchParams.get('teacherId') || 'tch-1';
+    const month = parsed.searchParams.get('month') || '2026-11';
+    const teachersList: any[] = Array.isArray(STATIC_TEACHERS) ? STATIC_TEACHERS : [];
+    const foundTeacher = teachersList.find((t) => t.id === tId) || teachersList[0] || { id: 'tch-1', full_name_ur: 'حضرت مفتی فرحان عاطف صاحب', full_name: 'Mufti Farhan Atif' };
+    const urduDays = ['اتوار', 'پیر', 'منگل', 'بدھ', 'جمعرات', 'جمعہ', 'ہفتہ'];
+    const days = [];
+    for (let d = 1; d <= 30; d++) {
+      const dStr = String(d).padStart(2, '0');
+      const dateObj = new Date(2026, 10, d);
+      const dayOfWeek = dateObj.getDay();
+      const isSunday = dayOfWeek === 0;
+      const dayName = urduDays[dayOfWeek];
+      days.push({
+        dayNumber: d,
+        date: `2026-11-${dStr}`,
+        dayFormatted: `${d}.`,
+        dayWithWeekday: `${d}. (${dayName})`,
+        dayName,
+        isSunday,
+        entries: !isSunday ? [{
+          id: `les-${d}`,
+          start_title: d === 1 ? 'تنبیہ علی الجرح' : `فصل فی احکام البیع ${d}`,
+          end_title: d === 1 ? 'تنبیہ علی الجرح' : `فصل فی احکام البیع ${d}`,
+          start_position: String(50 + d),
+          end_position: String(50 + d),
+          daily_pages: 1,
+          cumulative_pages: 50 + d,
+          lesson_timing: '8:15 تا 8:45',
+          attendance_status: 'present'
+        }] : [],
+        primaryEntry: !isSunday ? {
+          id: `les-${d}`,
+          start_title: d === 1 ? 'تنبیہ علی الجرح' : `فصل فی احکام البیع ${d}`,
+          end_title: d === 1 ? 'تنبیہ علی الجرح' : `فصل فی احکام البیع ${d}`,
+          start_position: String(50 + d),
+          end_position: String(50 + d),
+          daily_pages: 1,
+          cumulative_pages: 50 + d,
+          lesson_timing: '8:15 تا 8:45',
+          attendance_status: 'present'
+        } : null
+      });
+    }
+    return jsonResponse({
+      teacher: foundTeacher,
+      book: { id: 'bk-ashbah', title_ur: 'الاشباہ والنظائر', title_en: 'Al-Ashbah Wan-Nadhair', total_pages: 350 },
+      month,
+      hijriMonth: 'جمادی الثانی 1448ھ',
+      days,
+      totalLessons: 26
+    });
+  }
+
   // 24. Lessons (/api/lessons) -> Returns { lessons: [], bookProgress: [] }
   if (pathname === '/api/lessons') {
+    if (method === 'POST') {
+      const body = typeof options.body === 'string' ? JSON.parse(options.body) : {};
+      return jsonResponse({ id: 'les-' + Date.now(), ...body });
+    }
     return jsonResponse(STATIC_LESSONS || { lessons: [], bookProgress: [] });
+  }
+  if (pathname.startsWith('/api/lessons/') && (method === 'PUT' || method === 'DELETE')) {
+    return jsonResponse({ success: true });
   }
 
   // 25. Exams (/api/exams) -> Returns Array directly!

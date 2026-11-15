@@ -87,8 +87,8 @@ export const Layout: React.FC<LayoutProps> = ({ activeSection, onNavigate, onOpe
     { id: 'students', label: t('navStudents'), icon: <Users className="h-4 w-4 shrink-0" /> },
     { id: 'attendance', label: t('navAttendance'), icon: <CalendarCheck className="h-4 w-4 shrink-0" /> },
     { id: 'mutala', label: t('navMutala'), icon: <BookOpenCheck className="h-4 w-4 shrink-0" /> },
-    { id: 'teachers', label: t('navTeachers'), icon: <GraduationCap className="h-4 w-4 shrink-0" /> },
     { id: 'lessons', label: t('navLessons'), icon: <BookMarked className="h-4 w-4 shrink-0" /> },
+    { id: 'teachers', label: t('navTeachers'), icon: <GraduationCap className="h-4 w-4 shrink-0" /> },
     { id: 'exams', label: t('navExams'), icon: <ClipboardList className="h-4 w-4 shrink-0" /> },
     { id: 'research', label: t('navResearch'), icon: <ScrollText className="h-4 w-4 shrink-0" /> },
     { id: 'reports', label: t('navReports'), icon: <FileSpreadsheet className="h-4 w-4 shrink-0" /> },
@@ -130,8 +130,18 @@ export const Layout: React.FC<LayoutProps> = ({ activeSection, onNavigate, onOpe
           apiFetch(`/api/fatwa/dashboard?search=${encodeURIComponent(q)}`, { signal: controller.signal }, user),
         ]);
         if (controller.signal.aborted) return;
+        const needle = q.toLowerCase();
+        const digitsOnly = needle.replace(/[-\s+]/g, '');
+        const isNumericQuery = /^\d+$/.test(digitsOnly) && digitsOnly.length >= 3;
+
         const matchedFatwas = (fatwa?.questions || []).filter((fq: any) => {
-          const needle = q.toLowerCase();
+          if (isNumericQuery) {
+            return (
+              matchesPhoneSearch(fq.questioner_phone, needle) ||
+              (fq.fatwa_code || '').toLowerCase().includes(needle) ||
+              (fq.issued_fatwa_number || '').toLowerCase().includes(needle)
+            );
+          }
           return (
             (fq.fatwa_code || '').toLowerCase().includes(needle) ||
             (fq.issued_fatwa_number || '').toLowerCase().includes(needle) ||
@@ -142,7 +152,17 @@ export const Layout: React.FC<LayoutProps> = ({ activeSection, onNavigate, onOpe
             matchesPhoneSearch(fq.questioner_phone, needle)
           );
         });
-        setSearchResults({ ...acad, fatwas: matchedFatwas.slice(0, 5) });
+
+        const filteredBooks = isNumericQuery ? [] : (acad?.books || []);
+        const filteredResearch = isNumericQuery ? [] : (acad?.research || []);
+
+        setSearchResults({
+          students: acad?.students || [],
+          teachers: acad?.teachers || [],
+          books: filteredBooks,
+          research: filteredResearch,
+          fatwas: matchedFatwas.slice(0, 5),
+        });
       } catch (err: any) {
         // Aborted requests are expected while the user is still typing.
         if (err?.name !== 'AbortError' && !controller.signal.aborted) setSearchResults(null);
@@ -315,40 +335,7 @@ export const Layout: React.FC<LayoutProps> = ({ activeSection, onNavigate, onOpe
         </div>
 
         <nav className="flex-1 overflow-y-auto px-3 lg:px-3 py-4 space-y-5">
-          {/* Part 2: Dar-ul-Ifta */}
-          <div>
-            <div className={`px-3 pb-1.5 text-[11px] text-[#34D399] font-medium ${sidebarCollapsed ? 'lg:hidden' : 'block'}`}>
-              {t('moduleDarulIfta')}
-            </div>
-            <div className="space-y-1">
-              {fatwaNav.map((item) => {
-                const isActive = activeSection === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    title={item.label}
-                    onClick={() => {
-                      onNavigate(item.id);
-                      setSidebarOpen(false);
-                    }}
-                    className={`w-full flex items-center ${
-                      sidebarCollapsed ? 'gap-3 px-3.5 lg:justify-center lg:px-2' : 'gap-3 px-3.5'
-                    } rounded-md py-2.5 text-xs transition-colors whitespace-nowrap ${
-                      isActive
-                        ? 'bg-[#057A4B] text-white shadow-sm'
-                        : 'text-sky-50/90 hover:bg-white/10 hover:text-white'
-                    }`}
-                  >
-                    {item.icon}
-                    <span className={`truncate ${sidebarCollapsed ? 'lg:hidden' : 'inline'}`}>{item.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Part 1: Academic */}
+          {/* Part 1: Academic (نظام تعلیمات) */}
           <div>
             <div className={`px-3 pb-1.5 text-[11px] text-sky-300 font-medium ${sidebarCollapsed ? 'lg:hidden' : 'block'}`}>
               {t('moduleAcademic')}
@@ -381,13 +368,42 @@ export const Layout: React.FC<LayoutProps> = ({ activeSection, onNavigate, onOpe
             </div>
           </div>
 
-          {/* Part 3 / Master Admin Control */}
+          {/* Part 2: Dar-ul-Ifta (نظام دارالافتاء) */}
+          <div>
+            <div className={`px-3 pb-1.5 text-[11px] text-[#34D399] font-medium ${sidebarCollapsed ? 'lg:hidden' : 'block'}`}>
+              {t('moduleDarulIfta')}
+            </div>
+            <div className="space-y-1">
+              {fatwaNav.map((item) => {
+                const isActive = activeSection === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    title={item.label}
+                    onClick={() => {
+                      onNavigate(item.id);
+                      setSidebarOpen(false);
+                    }}
+                    className={`w-full flex items-center ${
+                      sidebarCollapsed ? 'gap-3 px-3.5 lg:justify-center lg:px-2' : 'gap-3 px-3.5'
+                    } rounded-md py-2.5 text-xs transition-colors whitespace-nowrap ${
+                      isActive
+                        ? 'bg-[#057A4B] text-white shadow-sm'
+                        : 'text-sky-50/90 hover:bg-white/10 hover:text-white'
+                    }`}
+                  >
+                    {item.icon}
+                    <span className={`truncate ${sidebarCollapsed ? 'lg:hidden' : 'inline'}`}>{item.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Admin Panel */}
           {user?.role === 'admin' && (
             <div className="pt-2 border-t border-white/10">
-              <div className={`px-3 pb-1.5 text-[11px] text-amber-300 font-semibold flex items-center gap-1.5 ${sidebarCollapsed ? 'lg:hidden' : 'flex'}`}>
-                <ShieldCheck className="h-3.5 w-3.5 text-amber-300" />
-                <span>{t('moduleMasterAdmin')}</span>
-              </div>
               <div className="space-y-1">
                 {adminNav.map((item) => {
                   const isActive = activeSection === item.id;

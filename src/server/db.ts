@@ -701,6 +701,28 @@ export function initDatabase() {
       insMissingLesson.run(uid(), ml.teacherId, ml.date, ml.classId, ml.batchId, ml.subjectId, ml.bookId, ml.start, ml.end, ml.homework, ml.remarks);
     }
   }
+
+  // Ensure study_logs columns exist for Takhasus manual register fields
+  const slCols = (db.prepare("PRAGMA table_info(study_logs)").all() as Array<{ name: string }>).map((c) => c.name);
+  if (!slCols.includes('maktaba')) db.exec("ALTER TABLE study_logs ADD COLUMN maktaba TEXT");
+  if (!slCols.includes('start_title')) db.exec("ALTER TABLE study_logs ADD COLUMN start_title TEXT");
+  if (!slCols.includes('end_title')) db.exec("ALTER TABLE study_logs ADD COLUMN end_title TEXT");
+  if (!slCols.includes('daily_pages')) db.exec("ALTER TABLE study_logs ADD COLUMN daily_pages INTEGER DEFAULT 0");
+  if (!slCols.includes('cumulative_pages')) db.exec("ALTER TABLE study_logs ADD COLUMN cumulative_pages INTEGER DEFAULT 0");
+  if (!slCols.includes('juziyat_notes')) db.exec("ALTER TABLE study_logs ADD COLUMN juziyat_notes TEXT");
+
+  // Ensure attendance_records columns exist for Takhasus manual register fields
+  const attCols = (db.prepare("PRAGMA table_info(attendance_records)").all() as Array<{ name: string }>).map((c) => c.name);
+  if (!attCols.includes('late_minutes')) db.exec("ALTER TABLE attendance_records ADD COLUMN late_minutes INTEGER DEFAULT 0");
+
+  // Ensure lesson_records columns exist for Takhasus daily karzari register (Image 1)
+  const lrCols = (db.prepare("PRAGMA table_info(lesson_records)").all() as Array<{ name: string }>).map((c) => c.name);
+  if (!lrCols.includes('start_title')) db.exec("ALTER TABLE lesson_records ADD COLUMN start_title TEXT");
+  if (!lrCols.includes('end_title')) db.exec("ALTER TABLE lesson_records ADD COLUMN end_title TEXT");
+  if (!lrCols.includes('lesson_timing')) db.exec("ALTER TABLE lesson_records ADD COLUMN lesson_timing TEXT");
+  if (!lrCols.includes('attendance_status')) db.exec("ALTER TABLE lesson_records ADD COLUMN attendance_status TEXT DEFAULT 'present'");
+  if (!lrCols.includes('daily_pages')) db.exec("ALTER TABLE lesson_records ADD COLUMN daily_pages INTEGER DEFAULT 1");
+  if (!lrCols.includes('cumulative_pages')) db.exec("ALTER TABLE lesson_records ADD COLUMN cumulative_pages INTEGER DEFAULT 0");
 }
 
 export function nextStudentCode(): string {
@@ -713,7 +735,7 @@ export function nextStudentCode(): string {
       if (n > maxNum) maxNum = n;
     }
   }
-  return `ST-${String(maxNum + 1).padStart(4, '0')}`;
+  return `ST-${String(maxNum + 1).padStart(3, '0')}`;
 }
 
 export function nextTeacherCode(): string {
@@ -726,7 +748,7 @@ export function nextTeacherCode(): string {
       if (n > maxNum) maxNum = n;
     }
   }
-  return `TCH-${String(maxNum + 1).padStart(4, '0')}`;
+  return `TCH-${String(maxNum + 1).padStart(3, '0')}`;
 }
 
 export function computeGrade(obtained: number, maxMarks: number): string {
@@ -832,6 +854,9 @@ function seedInitialData() {
     const bkHidayah = 'bk-hidayah';
     const bkBuhuth = 'bk-buhuth';
     const bkSiraji = 'bk-siraji';
+    const bkMaeeshat = 'bk-maeeshat';
+    const bkMuwafaqat = 'bk-muwafaqat';
+    const bkMusallam = 'bk-musallam';
 
     const insBook = db.prepare('INSERT INTO books (id, subject_id, title_en, title_ur, author, total_pages, total_chapters) VALUES (?, ?, ?, ?, ?, ?, ?)');
     insBook.run(bkRadd, subFiqh, 'Radd al-Muhtar (Shami)', 'رد المحتار (فتاویٰ شامی)', 'Allama Ibn Abidin (رحمہ اللہ)', 620, 18);
@@ -840,6 +865,9 @@ function seedInitialData() {
     insBook.run(bkHidayah, subMuamalat, 'Al-Hidayah (Kitab al-Buyu)', 'الہدایہ (کتاب البیوع)', 'Imam al-Marghinani (رحمہ اللہ)', 410, 14);
     insBook.run(bkBuhuth, subMuamalat, 'Fiqh al-Buyu & Contemporary Finance', 'فقہ البیوع و جدید مالیات', 'Mufti Taqi Usmani', 540, 16);
     insBook.run(bkSiraji, subAhwal, 'Al-Sirajiyyah (Inheritance)', 'السراجی فی المیراث', 'Imam Sajawandi (رحمہ اللہ)', 180, 10);
+    insBook.run(bkMaeeshat, subMuamalat, 'Islam aur Jadeed Maeeshat', 'اسلام اور جدید معیشت', 'مفتی تقی عثمانی', 450, 15);
+    insBook.run(bkMuwafaqat, subQawaid, 'Al-Muwafaqat', 'الموافقات', 'امام شاطبی', 600, 20);
+    insBook.run(bkMusallam, subUsool, 'Musallam al-Thubut', 'مسلم الثبوت', 'محب اللہ بہاری', 420, 14);
 
     // 3 Mandatory Attendance Sessions
     const ses1 = 'ses-morning';
@@ -859,10 +887,10 @@ function seedInitialData() {
       INSERT INTO teachers (id, profile_id, teacher_code, full_name, full_name_ur, qualification, qualification_ur, specialization, phone, email, address, joining_date, responsibilities, responsibilities_ur, status)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
-    insTch.run(t1, pTeacher1, 'TCH-0001', 'Mufti Salman Mansoorpuri', 'مفتی سلمان منصورپوری', 'Dars-e-Nizami, Takhassus fil Fiqh', 'درسِ نظامی، تخصص فی الفقہ والافتاء', 'Hanafi Fiqh & Usool al-Ifta', '+92-333-8129451', 'mufti.salman@naafay.edu.pk', 'Block B, Jamia Colony', '2021-05-10', 'Senior Mufti, Class Supervisor Year 1, Morning Attendance', 'سپروائزر سالِ اول، تدریسِ رسم المفتی و ردالمحتار، نگرانی حاضری صبح', 'active');
-    insTch.run(t2, pTeacher2, 'TCH-0002', 'Mufti Khalid Saifullah', 'مفتی خالد سیف اللہ', 'PhD Islamic Jurisprudence, Takhassus', 'ڈاکٹریٹ فقہِ اسلامی، تخصص فی الفقہ', 'Islamic Finance & Muamalat', '+92-345-6190231', 'mufti.khalid@naafay.edu.pk', 'Gulshan-e-Iqbal, Block 4', '2022-03-14', 'Lead Supervisor Year 2, Maqala Supervision, Zuhr Session', 'سپروائزر سالِ دوم، تدریسِ فقہ البیوع و ہدایہ، نگرانیِ مقالات', 'active');
-    insTch.run(t3, null, 'TCH-0003', 'Mufti Anas Nadvi', 'مفتی انس ندوی', 'Al-Alimiyyah, Takhassus fil Hadith wal Fiqh', 'العالمیہ، تخصص فی الفقہ والحدیث', 'Al-Qawaid al-Fiqhiyyah', '+92-302-9910422', 'anas.nadvi@naafay.edu.pk', 'Model Town, Lahore', '2023-08-01', 'Teaching Al-Ashbah wan-Nazair & Maghrib Mutala Supervision', 'تدریسِ الاشباہ والنظائر، نگرانیِ مطالعہ مغرب تا عشاء', 'active');
-    insTch.run(t4, null, 'TCH-0004', 'Mufti Saeed Ahmad Palanpuri', 'مفتی سعید احمد پالنپوری', 'Takhassus fil Ifta, M.Phil Arabic', 'تخصص فی الافتاء، ایم فل عربی', 'Ahwal-e-Shakhsiyyah & Mirath', '+92-315-8832104', 'saeed.ahmad@naafay.edu.pk', 'Johar Town, Lahore', '2024-01-12', 'Teaching Kitab al-Nikah, Sirajiyyah & Oral Examinations', 'تدریسِ کتاب النکاح و السراجی، زبانی امتحانات', 'active');
+    insTch.run(t1, pTeacher1, 'TCH-001', 'Mufti Salman Mansoorpuri', 'مفتی سلمان منصورپوری', 'Dars-e-Nizami, Takhassus fil Fiqh', 'درسِ نظامی، تخصص فی الفقہ والافتاء', 'Hanafi Fiqh & Usool al-Ifta', '+92-333-8129451', 'mufti.salman@naafay.edu.pk', 'Block B, Jamia Colony', '2021-05-10', 'Senior Mufti, Class Supervisor Year 1, Morning Attendance', 'سپروائزر سالِ اول، تدریسِ رسم المفتی و ردالمحتار، نگرانی حاضری صبح', 'active');
+    insTch.run(t2, pTeacher2, 'TCH-002', 'Mufti Khalid Saifullah', 'مفتی خالد سیف اللہ', 'PhD Islamic Jurisprudence, Takhassus', 'ڈاکٹریٹ فقہِ اسلامی، تخصص فی الفقہ', 'Islamic Finance & Muamalat', '+92-345-6190231', 'mufti.khalid@naafay.edu.pk', 'Gulshan-e-Iqbal, Block 4', '2022-03-14', 'Lead Supervisor Year 2, Maqala Supervision, Zuhr Session', 'سپروائزر سالِ دوم، تدریسِ فقہ البیوع و ہدایہ، نگرانیِ مقالات', 'active');
+    insTch.run(t3, null, 'TCH-003', 'Mufti Anas Nadvi', 'مفتی انس ندوی', 'Al-Alimiyyah, Takhassus fil Hadith wal Fiqh', 'العالمیہ، تخصص فی الفقہ والحدیث', 'Al-Qawaid al-Fiqhiyyah', '+92-302-9910422', 'anas.nadvi@naafay.edu.pk', 'Model Town, Lahore', '2023-08-01', 'Teaching Al-Ashbah wan-Nazair & Maghrib Mutala Supervision', 'تدریسِ الاشباہ والنظائر، نگرانیِ مطالعہ مغرب تا عشاء', 'active');
+    insTch.run(t4, null, 'TCH-004', 'Mufti Saeed Ahmad Palanpuri', 'مفتی سعید احمد پالنپوری', 'Takhassus fil Ifta, M.Phil Arabic', 'تخصص فی الافتاء، ایم فل عربی', 'Ahwal-e-Shakhsiyyah & Mirath', '+92-315-8832104', 'saeed.ahmad@naafay.edu.pk', 'Johar Town, Lahore', '2024-01-12', 'Teaching Kitab al-Nikah, Sirajiyyah & Oral Examinations', 'تدریسِ کتاب النکاح و السراجی، زبانی امتحانات', 'active');
 
     // Teacher Assignments & Schedule
     const insTA = db.prepare('INSERT INTO teacher_assignments (id, teacher_id, academic_year_id, class_id, batch_id, subject_id, book_id, session_id, start_time, end_time, days_of_week, room_name, is_class_supervisor, can_mark_attendance) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
@@ -875,14 +903,14 @@ function seedInitialData() {
 
     // Students (8 realistic Takhassus students)
     const studentSeeds = [
-      { id: 'stu-1', prof: pStudent1, code: 'ST-0001', en: 'Abdur Rahman Madani', ur: 'مولانا عبدالرحمٰن مدنی', fEn: 'Hafiz Muhammad Ibrahim', fUr: 'حافظ محمد ابراہیم', dob: '2000-04-12', phone: '+92-301-7782310', email: 'abdurrahman@naafay.edu.pk', addr: 'Bahadurabad, Karachi', addrUr: 'بہادرآباد، کراچی', edu: 'Shahadat-ul-Alamiyyah (Wifaq ul Madaris)', eduUr: 'شہادۃ العالمیہ (وفاق المدارس العربیہ)', cls: cls1, bat: bat1, status: 'active' },
-      { id: 'stu-2', prof: null, code: 'ST-0002', en: 'Muhammad Umar Farooq', ur: 'مولانا محمد عمر فاروق', fEn: 'Maulana Abdul Razzaq', fUr: 'مولانا عبدالرزاق', dob: '1999-08-21', phone: '+92-312-4490812', email: 'umar.farooq@naafay.edu.pk', addr: 'Samanabad, Lahore', addrUr: 'سمن آباد، لاہور', edu: 'Shahadat-ul-Alamiyyah (Mumtaz)', eduUr: 'شہادۃ العالمیہ (ممتاز)', cls: cls1, bat: bat1, status: 'active' },
-      { id: 'stu-3', prof: null, code: 'ST-0003', en: 'Huzaifa bin Yousuf', ur: 'مولانا حذیفہ بن یوسف', fEn: 'Haji Yousuf Ismail', fUr: 'حاجی یوسف اسماعیل', dob: '2001-01-19', phone: '+92-334-9102341', email: 'huzaifa@naafay.edu.pk', addr: 'Gulistan-e-Johar, Karachi', addrUr: 'گلستانِ جوہر، کراچی', edu: 'Shahadat-ul-Alamiyyah, BA', eduUr: 'شہادۃ العالمیہ، بی اے', cls: cls1, bat: bat1, status: 'active' },
-      { id: 'stu-4', prof: null, code: 'ST-0004', en: 'Zaidullah Khan', ur: 'مولانا زید اللہ خان', fEn: 'Hidayatullah Khan', fUr: 'ہدایت اللہ خان', dob: '2000-11-05', phone: '+92-345-8823190', email: 'zaidullah@naafay.edu.pk', addr: 'University Town, Peshawar', addrUr: 'یونیورسٹی ٹاؤن، پشاور', edu: 'Shahadat-ul-Alamiyyah', eduUr: 'شہادۃ العالمیہ', cls: cls1, bat: bat1, status: 'active' },
-      { id: 'stu-5', prof: null, code: 'ST-0005', en: 'Talha bin Zubair', ur: 'مولانا طلحہ بن زبیر', fEn: 'Zubair Ahmad Siddiqui', fUr: 'زبیر احمد صدیقی', dob: '1998-06-30', phone: '+92-300-6671290', email: 'talha@naafay.edu.pk', addr: 'Satellite Town, Rawalpindi', addrUr: 'سیٹلائٹ ٹاؤن، راولپنڈی', edu: 'Shahadat-ul-Alamiyyah, MA Islamiat', eduUr: 'شہادۃ العالمیہ، ایم اے اسلامیات', cls: cls2, bat: bat2, status: 'active' },
-      { id: 'stu-6', prof: null, code: 'ST-0006', en: 'Saad bin Abi Waqqas', ur: 'مولانا سعد بن ابی وقاص', fEn: 'Maulana Manzoor Ahmad', fUr: 'مولانا منظور احمد', dob: '1999-03-14', phone: '+92-322-5519034', email: 'saad@naafay.edu.pk', addr: 'Peoples Colony, Faisalabad', addrUr: 'پیپلز کالونی، فیصل آباد', edu: 'Shahadat-ul-Alamiyyah', eduUr: 'شہادۃ العالمیہ', cls: cls2, bat: bat2, status: 'active' },
-      { id: 'stu-7', prof: null, code: 'ST-0007', en: 'Usama bin Zaid', ur: 'مولانا اسامہ بن زید', fEn: 'Dr. Zaid Mahmood', fUr: 'ڈاکٹر زید محمود', dob: '1997-12-09', phone: '+92-331-2239011', email: 'usama@naafay.edu.pk', addr: 'Model Town, Multan', addrUr: 'ماڈل ٹاؤن، ملتان', edu: 'Takhassus Year 1 Completed', eduUr: 'تخصص سالِ اول مکمل', cls: cls3, bat: bat3, status: 'active' },
-      { id: 'stu-8', prof: null, code: 'ST-0008', en: 'Bilal Ahmad Usmani', ur: 'مولانا بلال احمد عثمانی', fEn: 'Shafiq Ahmad Usmani', fUr: 'شفیق احمد عثمانی', dob: '2000-02-27', phone: '+92-305-4410923', email: 'bilal@naafay.edu.pk', addr: 'DHA Phase 2, Islamabad', addrUr: 'ڈی ایچ اے فیز ۲، اسلام آباد', edu: 'Shahadat-ul-Alamiyyah', eduUr: 'شہادۃ العالمیہ', cls: cls2, bat: bat2, status: 'on_leave' },
+      { id: 'stu-1', prof: pStudent1, code: 'ST-001', en: 'Abdur Rahman Madani', ur: 'مولانا عبدالرحمٰن مدنی', fEn: 'Hafiz Muhammad Ibrahim', fUr: 'حافظ محمد ابراہیم', dob: '2000-04-12', phone: '+92-301-7782310', email: 'abdurrahman@naafay.edu.pk', addr: 'Bahadurabad, Karachi', addrUr: 'بہادرآباد، کراچی', edu: 'Shahadat-ul-Alamiyyah (Wifaq ul Madaris)', eduUr: 'شہادۃ العالمیہ (وفاق المدارس العربیہ)', cls: cls1, bat: bat1, status: 'active' },
+      { id: 'stu-2', prof: null, code: 'ST-002', en: 'Muhammad Umar Farooq', ur: 'مولانا محمد عمر فاروق', fEn: 'Maulana Abdul Razzaq', fUr: 'مولانا عبدالرزاق', dob: '1999-08-21', phone: '+92-312-4490812', email: 'umar.farooq@naafay.edu.pk', addr: 'Samanabad, Lahore', addrUr: 'سمن آباد، لاہور', edu: 'Shahadat-ul-Alamiyyah (Mumtaz)', eduUr: 'شہادۃ العالمیہ (ممتاز)', cls: cls1, bat: bat1, status: 'active' },
+      { id: 'stu-3', prof: null, code: 'ST-003', en: 'Huzaifa bin Yousuf', ur: 'مولانا حذیفہ بن یوسف', fEn: 'Haji Yousuf Ismail', fUr: 'حاجی یوسف اسماعیل', dob: '2001-01-19', phone: '+92-334-9102341', email: 'huzaifa@naafay.edu.pk', addr: 'Gulistan-e-Johar, Karachi', addrUr: 'گلستانِ جوہر، کراچی', edu: 'Shahadat-ul-Alamiyyah, BA', eduUr: 'شہادۃ العالمیہ، بی اے', cls: cls1, bat: bat1, status: 'active' },
+      { id: 'stu-4', prof: null, code: 'ST-004', en: 'Zaidullah Khan', ur: 'مولانا زید اللہ خان', fEn: 'Hidayatullah Khan', fUr: 'ہدایت اللہ خان', dob: '2000-11-05', phone: '+92-345-8823190', email: 'zaidullah@naafay.edu.pk', addr: 'University Town, Peshawar', addrUr: 'یونیورسٹی ٹاؤن، پشاور', edu: 'Shahadat-ul-Alamiyyah', eduUr: 'شہادۃ العالمیہ', cls: cls1, bat: bat1, status: 'active' },
+      { id: 'stu-5', prof: null, code: 'ST-005', en: 'Talha bin Zubair', ur: 'مولانا طلحہ بن زبیر', fEn: 'Zubair Ahmad Siddiqui', fUr: 'زبیر احمد صدیقی', dob: '1998-06-30', phone: '+92-300-6671290', email: 'talha@naafay.edu.pk', addr: 'Satellite Town, Rawalpindi', addrUr: 'سیٹلائٹ ٹاؤن، راولپنڈی', edu: 'Shahadat-ul-Alamiyyah, MA Islamiat', eduUr: 'شہادۃ العالمیہ، ایم اے اسلامیات', cls: cls2, bat: bat2, status: 'active' },
+      { id: 'stu-6', prof: null, code: 'ST-006', en: 'Saad bin Abi Waqqas', ur: 'مولانا سعد بن ابی وقاص', fEn: 'Maulana Manzoor Ahmad', fUr: 'مولانا منظور احمد', dob: '1999-03-14', phone: '+92-322-5519034', email: 'saad@naafay.edu.pk', addr: 'Peoples Colony, Faisalabad', addrUr: 'پیپلز کالونی، فیصل آباد', edu: 'Shahadat-ul-Alamiyyah', eduUr: 'شہادۃ العالمیہ', cls: cls2, bat: bat2, status: 'active' },
+      { id: 'stu-7', prof: null, code: 'ST-007', en: 'Usama bin Zaid', ur: 'مولانا اسامہ بن زید', fEn: 'Dr. Zaid Mahmood', fUr: 'ڈاکٹر زید محمود', dob: '1997-12-09', phone: '+92-331-2239011', email: 'usama@naafay.edu.pk', addr: 'Model Town, Multan', addrUr: 'ماڈل ٹاؤن، ملتان', edu: 'Takhassus Year 1 Completed', eduUr: 'تخصص سالِ اول مکمل', cls: cls3, bat: bat3, status: 'active' },
+      { id: 'stu-8', prof: null, code: 'ST-008', en: 'Bilal Ahmad Usmani', ur: 'مولانا بلال احمد عثمانی', fEn: 'Shafiq Ahmad Usmani', fUr: 'شفیق احمد عثمانی', dob: '2000-02-27', phone: '+92-305-4410923', email: 'bilal@naafay.edu.pk', addr: 'DHA Phase 2, Islamabad', addrUr: 'ڈی ایچ اے فیز ۲، اسلام آباد', edu: 'Shahadat-ul-Alamiyyah', eduUr: 'شہادۃ العالمیہ', cls: cls2, bat: bat2, status: 'on_leave' },
     ];
 
     const insStu = db.prepare(`

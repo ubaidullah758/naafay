@@ -155,6 +155,69 @@ async function startServer() {
     res.json({ academicYears, classes, batches, subjects, books, sessions, roles, teachers });
   });
 
+  // Create new Class, Academic Year, and Batch / Group
+  app.post('/api/classes', requireRole('admin', 'office_staff'), (req: SessionRequest, res) => {
+    try {
+      const b = req.body;
+      const name_ur = (b.name_ur || b.name || '').trim();
+      if (!name_ur) return res.status(400).json({ error: 'Class name is required' });
+      const id = `cls-${Date.now().toString(36)}`;
+      const count = (db.prepare('SELECT COUNT(*) as c FROM classes').get() as { c: number }).c;
+      const code = b.code || `CLS-${count + 1}`;
+      const name_en = b.name_en || name_ur;
+      db.prepare(`
+        INSERT INTO classes (id, code, name_en, name_ur, level_order, description, is_active)
+        VALUES (?, ?, ?, ?, ?, ?, 1)
+      `).run(id, code, name_en, name_ur, count + 1, b.description || null);
+      logAudit(req, 'CLASS_CREATED', 'class', id, { code, name_ur });
+      res.status(201).json(db.prepare('SELECT * FROM classes WHERE id = ?').get(id));
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/academic-years', requireRole('admin', 'office_staff'), (req: SessionRequest, res) => {
+    try {
+      const b = req.body;
+      const title_ur = (b.title_ur || b.title || '').trim();
+      if (!title_ur) return res.status(400).json({ error: 'Academic year title is required' });
+      const id = `ay-${Date.now().toString(36)}`;
+      const count = (db.prepare('SELECT COUNT(*) as c FROM academic_years').get() as { c: number }).c;
+      const code = b.code || `AY-${count + 1}`;
+      const title_en = b.title_en || title_ur;
+      const startDate = b.start_date || new Date().toISOString().slice(0, 10);
+      const endDate = b.end_date || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      db.prepare(`
+        INSERT INTO academic_years (id, code, title_en, title_ur, hijri_year, start_date, end_date, is_current)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 0)
+      `).run(id, code, title_en, title_ur, b.hijri_year || null, startDate, endDate);
+      logAudit(req, 'ACADEMIC_YEAR_CREATED', 'academic_year', id, { code, title_ur });
+      res.status(201).json(db.prepare('SELECT * FROM academic_years WHERE id = ?').get(id));
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/batches', requireRole('admin', 'office_staff'), (req: SessionRequest, res) => {
+    try {
+      const b = req.body;
+      const name_ur = (b.name_ur || b.name || '').trim();
+      if (!name_ur) return res.status(400).json({ error: 'Batch name is required' });
+      const id = `bat-${Date.now().toString(36)}`;
+      const name_en = b.name_en || name_ur;
+      const class_id = b.class_id || (db.prepare('SELECT id FROM classes LIMIT 1').get() as { id: string })?.id;
+      const academic_year_id = b.academic_year_id || (db.prepare('SELECT id FROM academic_years LIMIT 1').get() as { id: string })?.id;
+      db.prepare(`
+        INSERT INTO batches (id, class_id, academic_year_id, name_en, name_ur, capacity, is_active)
+        VALUES (?, ?, ?, ?, ?, 30, 1)
+      `).run(id, class_id, academic_year_id, name_en, name_ur);
+      logAudit(req, 'BATCH_CREATED', 'batch', id, { name_ur, class_id });
+      res.status(201).json(db.prepare('SELECT * FROM batches WHERE id = ?').get(id));
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // Dashboard & Global Search
   app.get('/api/dashboard', (req: SessionRequest, res) => {
     const today = new Date().toISOString().slice(0, 10);
@@ -505,9 +568,12 @@ async function startServer() {
   app.post('/api/students', requireRole('admin', 'office_staff'), (req: SessionRequest, res) => {
     try {
       const b = req.body;
-      if (!b.full_name || !b.father_name || !b.phone) {
-        return res.status(400).json({ error: 'Full name, father name, and phone are required' });
+      const fullName = (b.full_name_ur || b.full_name || '').trim();
+      if (!fullName) {
+        return res.status(400).json({ error: 'طالب علم کا نام درج کرنا لازمی ہے', error_ur: 'طالب علم کا نام درج کرنا لازمی ہے' });
       }
+      const fatherName = (b.father_name_ur || b.father_name || '').trim() || '—';
+      const phone = (b.phone || '').trim() || '—';
       const studentId = uid();
       const studentCode = nextStudentCode();
       const tx = db.transaction(() => {
@@ -520,12 +586,12 @@ async function startServer() {
         `).run(
           studentId,
           studentCode,
-          b.full_name,
-          b.full_name_ur || b.full_name,
-          b.father_name,
-          b.father_name_ur || b.father_name,
+          b.full_name || fullName,
+          b.full_name_ur || fullName,
+          b.father_name || fatherName,
+          b.father_name_ur || fatherName,
           b.date_of_birth || null,
-          b.phone,
+          phone,
           b.email || null,
           b.address || null,
           b.address_ur || b.address || null,
@@ -539,14 +605,14 @@ async function startServer() {
           b.photo_url || null
         );
 
-        if (b.guardian_name || b.guardian_phone) {
+        if (b.guardian_name || b.guardian_phone || fatherName !== '—') {
           const gId = uid();
           db.prepare('INSERT INTO guardians (id, full_name, full_name_ur, phone, whatsapp, occupation, address) VALUES (?, ?, ?, ?, ?, ?, ?)').run(
             gId,
-            b.guardian_name || b.father_name,
-            b.guardian_name_ur || b.father_name_ur || b.guardian_name || b.father_name,
-            b.guardian_phone || b.phone,
-            b.guardian_whatsapp || b.guardian_phone || b.phone,
+            b.guardian_name || b.father_name || fatherName,
+            b.guardian_name_ur || b.father_name_ur || b.guardian_name || b.father_name || fatherName,
+            b.guardian_phone || phone,
+            b.guardian_whatsapp || b.guardian_phone || phone,
             b.guardian_occupation || null,
             b.address || null
           );
@@ -699,6 +765,7 @@ async function startServer() {
         id: r.id,
         status: r.status,
         remarks: r.remarks || '',
+        late_minutes: r.late_minutes !== null && r.late_minutes !== undefined ? r.late_minutes : (r.status === 'late' ? 15 : 0),
       };
     }
 
@@ -722,7 +789,7 @@ async function startServer() {
 
   app.post('/api/attendance/quick-mark', requireRole('admin', 'office_staff', 'teacher'), (req: SessionRequest, res) => {
     try {
-      const { studentId, classId, batchId, sessionId, date, status, remarks } = req.body as {
+      const { studentId, classId, batchId, sessionId, date, status, remarks, lateMinutes } = req.body as {
         studentId: string;
         classId?: string;
         batchId?: string;
@@ -730,6 +797,7 @@ async function startServer() {
         date: string;
         status: string;
         remarks?: string;
+        lateMinutes?: number;
       };
 
       if (!studentId || !sessionId || !date || !status) {
@@ -741,15 +809,17 @@ async function startServer() {
       }
 
       const existing = db.prepare(
-        'SELECT id, status, remarks FROM attendance_records WHERE student_id = ? AND attendance_date = ? AND session_id = ?'
-      ).get(studentId, date, sessionId) as { id: string; status: string; remarks?: string } | undefined;
+        'SELECT id, status, remarks, late_minutes FROM attendance_records WHERE student_id = ? AND attendance_date = ? AND session_id = ?'
+      ).get(studentId, date, sessionId) as { id: string; status: string; remarks?: string; late_minutes?: number } | undefined;
+
+      const calcLateMin = lateMinutes !== undefined ? Number(lateMinutes) : (status === 'late' ? 15 : 0);
 
       let recordId = '';
       if (existing) {
         recordId = existing.id;
         db.prepare(
-          'UPDATE attendance_records SET status = ?, remarks = COALESCE(?, remarks), updated_at = datetime(\'now\') WHERE id = ?'
-        ).run(status, remarks ?? null, recordId);
+          'UPDATE attendance_records SET status = ?, remarks = COALESCE(?, remarks), late_minutes = ?, updated_at = datetime(\'now\') WHERE id = ?'
+        ).run(status, remarks ?? null, calcLateMin, recordId);
 
         logAudit(req, 'ATTENDANCE_QUICK_UPDATED', 'attendance', recordId, {
           studentId,
@@ -757,23 +827,25 @@ async function startServer() {
           date,
           from: existing.status,
           to: status,
+          lateMinutes: calcLateMin
         });
       } else {
         recordId = uid();
         const cid = classId || 'cls-tak1';
         db.prepare(
-          'INSERT INTO attendance_records (id, student_id, class_id, batch_id, session_id, attendance_date, status, remarks, marked_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
-        ).run(recordId, studentId, cid, batchId || null, sessionId, date, status, remarks || null, req.actor?.profileId || null);
+          'INSERT INTO attendance_records (id, student_id, class_id, batch_id, session_id, attendance_date, status, remarks, marked_by, late_minutes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        ).run(recordId, studentId, cid, batchId || null, sessionId, date, status, remarks || null, req.actor?.profileId || null, calcLateMin);
 
         logAudit(req, 'ATTENDANCE_QUICK_MARKED', 'attendance', recordId, {
           studentId,
           sessionId,
           date,
           status,
+          lateMinutes: calcLateMin
         });
       }
 
-      res.json({ success: true, recordId, studentId, sessionId, status, date });
+      res.json({ success: true, recordId, studentId, sessionId, status, date, lateMinutes: calcLateMin });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
@@ -1014,6 +1086,148 @@ async function startServer() {
     res.json({ date, month, daily, dailyGrouped, monthlySummary, absentList, corrections, dailyMutala, dailyLessons });
   });
 
+  // Per-Student Monthly Attendance Register (Matching Takhasus Manual PDF Sheet)
+  app.get('/api/attendance/student-monthly', (req: SessionRequest, res) => {
+    try {
+      const studentId = (req.query.studentId as string) || (req.actor?.role === 'student' ? req.actor.studentId : '') || '';
+      const month = (req.query.month as string) || new Date().toISOString().slice(0, 7);
+
+      if (!studentId) {
+        return res.status(400).json({ error: 'studentId is required' });
+      }
+
+      const student = db.prepare(`
+        SELECT st.*, c.name_en as class_name_en, c.name_ur as class_name_ur,
+               b.name_en as batch_name_en, b.name_ur as batch_name_ur
+        FROM students st
+        LEFT JOIN classes c ON c.id = st.class_id
+        LEFT JOIN batches b ON b.id = st.batch_id
+        WHERE st.id = ?
+      `).get(studentId) as any;
+
+      if (!student) {
+        return res.status(404).json({ error: 'Student not found' });
+      }
+
+      const sessions = db.prepare('SELECT * FROM attendance_sessions ORDER BY sort_order ASC').all() as any[];
+
+      const [yearStr, monthStr] = month.split('-');
+      const year = parseInt(yearStr, 10);
+      const mNum = parseInt(monthStr, 10);
+      const daysCount = new Date(year, mNum, 0).getDate();
+
+      const urduDays = ['اتوار', 'پیر', 'منگل', 'بدھ', 'جمعرات', 'جمعہ', 'ہفتہ'];
+      const hijriMap: Record<string, string> = {
+        '2026-10': 'جمادی الاول 1448ھ',
+        '2026-11': 'جمادی الثانی 1448ھ',
+        '2026-12': 'رجب المرجب 1448ھ',
+        '2027-01': 'شعبان المعظم 1448ھ',
+        '2027-02': 'رمضان المبارک 1448ھ',
+        '2027-03': 'شوال المکرم 1448ھ',
+        '2027-04': 'ذوالقعدۃ 1448ھ',
+        '2027-05': 'ذوالحجہ 1448ھ',
+      };
+      const hijriMonth = hijriMap[month] || 'جمادی الثانی 1448ھ';
+
+      const records = db.prepare(`
+        SELECT ar.*, s.code as session_code, s.name_ur as session_name_ur
+        FROM attendance_records ar
+        JOIN attendance_sessions s ON s.id = ar.session_id
+        WHERE ar.student_id = ? AND ar.attendance_date LIKE ?
+      `).all(studentId, `${month}-%`) as any[];
+
+      const recordsByDateSession: Record<string, Record<string, any>> = {};
+      for (const r of records) {
+        if (!recordsByDateSession[r.attendance_date]) {
+          recordsByDateSession[r.attendance_date] = {};
+        }
+        recordsByDateSession[r.attendance_date][r.session_id] = r;
+      }
+
+      let totalPresents = 0;
+      let totalAbsents = 0;
+      let totalLeaves = 0;
+      let totalLates = 0;
+      let totalLateMinutes = 0;
+
+      const days = [];
+      for (let d = 1; d <= daysCount; d++) {
+        const dayStr = String(d).padStart(2, '0');
+        const fullDate = `${month}-${dayStr}`;
+        const dateObj = new Date(year, mNum - 1, d);
+        const dayOfWeek = dateObj.getDay();
+        const dayName = urduDays[dayOfWeek];
+        const dayFormatted = `${dayStr}/${monthStr} - ${dayName}`;
+        const isSunday = dayOfWeek === 0;
+
+        const daySes = recordsByDateSession[fullDate] || {};
+        let dayLateMin = 0;
+        let dayHasPresent = false;
+        let dayHasAbsent = false;
+        let dayHasLeave = false;
+        let dayHasLate = false;
+
+        for (const ses of sessions) {
+          const rec = daySes[ses.id];
+          if (rec) {
+            if (rec.status === 'present') dayHasPresent = true;
+            if (rec.status === 'absent') dayHasAbsent = true;
+            if (rec.status === 'leave') dayHasLeave = true;
+            if (rec.status === 'late') {
+              dayHasLate = true;
+              dayLateMin += (Number(rec.late_minutes) || 15);
+            }
+          }
+        }
+
+        if (dayHasLate) {
+          totalLates++;
+          totalLateMinutes += dayLateMin;
+        } else if (dayHasAbsent) {
+          totalAbsents++;
+        } else if (dayHasLeave) {
+          totalLeaves++;
+        } else if (dayHasPresent) {
+          totalPresents++;
+        }
+
+        days.push({
+          dayNumber: d,
+          date: fullDate,
+          dayFormatted,
+          dayName,
+          isSunday,
+          sessions: daySes,
+          dailyLateMinutes: dayLateMin,
+          hasSigned: Boolean(dayHasPresent || dayHasLate)
+        });
+      }
+
+      res.json({
+        student,
+        month,
+        hijriMonth,
+        sessions,
+        days,
+        totals: {
+          leaves: totalLeaves,
+          absents: totalAbsents,
+          lates: totalLates,
+          lateMinutes: totalLateMinutes,
+          presents: totalPresents
+        },
+        timings: {
+          morning: 'صبح: 8:00 بجے سے 12:00 بجے تک',
+          zuhr: 'ظہر: 2:00 بجے سے عصر کی اذان تک',
+          maghrib: 'مغرب: مغرب کا وقت داخل ہونے کے تین منٹ بعد سے رات 8:00 بجے تک (اس دورانیے میں کھانا اور نماز شامل نہیں)'
+        },
+        rules: 'جمعہ کے روز نماز جمعہ کے متصل بعد کلاس شروع ہوگی۔ نیز عصر تا مغرب تخلئی نہ ہوگی، چاہے اسباق ہوں نہ ہوں۔ کلاس میں حاضر ہوں تو آنے کا وقت اور کلاس سے جائیں تو جانے کا وقت درج کریں۔ حاضری شیٹ کی حفاظت طالب علم کی ذمہ داری ہے۔ ایک دن یا اس سے زائد وقت کی رخصت لینے کی صورت میں کم از کم پانچ دن پہلے درخواست جمع کروانا ضروری ہے۔ تاخیر یا غیر حاضری کی وجہ سے ادارہ کسی بھی قسم کی تادیبی کارروائی کا مجاز ہوگا۔'
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // =========================================================================
   // DAILY MUTALA MANAGEMENT
   // =========================================================================
@@ -1115,27 +1329,180 @@ async function startServer() {
     res.json(latestByStudentBook);
   });
 
+  // Per-Student Monthly Mutala Register (Matching Takhasus Manual PDF Sheet)
+  app.get('/api/mutala/student-monthly', (req: SessionRequest, res) => {
+    try {
+      const studentId = (req.query.studentId as string) || (req.actor?.role === 'student' ? req.actor.studentId : '') || '';
+      const month = (req.query.month as string) || new Date().toISOString().slice(0, 7);
+      const bookId = (req.query.bookId as string) || '';
+
+      if (!studentId) {
+        return res.status(400).json({ error: 'Student ID is required' });
+      }
+
+      const student = db.prepare(`
+        SELECT st.*, c.name_en as class_name_en, c.name_ur as class_name_ur,
+               b.name_en as batch_name_en, b.name_ur as batch_name_ur
+        FROM students st
+        LEFT JOIN classes c ON c.id = st.class_id
+        LEFT JOIN batches b ON b.id = st.batch_id
+        WHERE st.id = ?
+      `).get(studentId) as any;
+
+      if (!student) {
+        return res.status(404).json({ error: 'Student not found' });
+      }
+
+      const [yearStr, monthStr] = month.split('-');
+      const year = parseInt(yearStr, 10);
+      const mNum = parseInt(monthStr, 10);
+      const daysCount = new Date(year, mNum, 0).getDate();
+
+      const urduDays = ['اتوار', 'پیر', 'منگل', 'بدھ', 'جمعرات', 'جمعہ', 'ہفتہ'];
+      const hijriMap: Record<string, string> = {
+        '2026-10': 'جمادی الاول 1448ھ',
+        '2026-11': 'جمادی الثانی 1448ھ',
+        '2026-12': 'رجب المرجب 1448ھ',
+        '2027-01': 'شعبان المعظم 1448ھ',
+        '2027-02': 'رمضان المبارک 1448ھ',
+        '2027-03': 'شوال المکرم 1448ھ',
+        '2027-04': 'ذوالقعدۃ 1448ھ',
+        '2027-05': 'ذوالحجہ 1448ھ',
+      };
+      const hijriMonth = hijriMap[month] || 'جمادی الثانی 1448ھ';
+
+      let logQuery = `
+        SELECT sl.*, bk.title_en as book_title_en, bk.title_ur as book_title_ur,
+               sr.reviewer_name, sr.comments as review_comments, sr.decision as review_decision
+        FROM study_logs sl
+        JOIN books bk ON bk.id = sl.book_id
+        LEFT JOIN study_reviews sr ON sr.id = (
+          SELECT id FROM study_reviews WHERE study_log_id = sl.id ORDER BY reviewed_at DESC LIMIT 1
+        )
+        WHERE sl.student_id = ? AND sl.study_date LIKE ?
+      `;
+      const logParams: any[] = [studentId, `${month}-%`];
+      if (bookId) {
+        logQuery += ' AND sl.book_id = ?';
+        logParams.push(bookId);
+      }
+      logQuery += ' ORDER BY sl.study_date ASC, sl.created_at ASC';
+
+      const monthLogs = db.prepare(logQuery).all(...logParams) as any[];
+
+      const logsByDate: Record<string, any[]> = {};
+      for (const l of monthLogs) {
+        if (!logsByDate[l.study_date]) logsByDate[l.study_date] = [];
+        logsByDate[l.study_date].push(l);
+      }
+
+      const days = [];
+      let runningTotalPages = 0;
+
+      for (let d = 1; d <= daysCount; d++) {
+        const dayStr = String(d).padStart(2, '0');
+        const fullDate = `${month}-${dayStr}`;
+        const dateObj = new Date(year, mNum - 1, d);
+        const dayOfWeek = dateObj.getDay();
+        const dayName = urduDays[dayOfWeek];
+        const dayFormatted = `${dayStr}/${monthStr} - ${dayName}`;
+        const isSunday = dayOfWeek === 0;
+
+        const dayEntries = logsByDate[fullDate] || [];
+        const firstEntry = dayEntries[0] || null;
+
+        if (firstEntry && firstEntry.daily_pages) {
+          runningTotalPages += Number(firstEntry.daily_pages);
+        }
+
+        days.push({
+          dayNumber: d,
+          date: fullDate,
+          dayFormatted,
+          dayName,
+          isSunday,
+          entries: dayEntries,
+          primaryEntry: firstEntry ? {
+            ...firstEntry,
+            cumulative_pages: firstEntry.cumulative_pages || runningTotalPages
+          } : null
+        });
+      }
+
+      const summaryByBook = db.prepare(`
+        SELECT bk.id as book_id, bk.title_en, bk.title_ur,
+               MIN(sl.study_date) as start_date, MAX(sl.study_date) as end_date,
+               MIN(sl.start_title) as first_start_title, MAX(sl.end_title) as last_end_title,
+               MIN(sl.start_position) as first_start_pos, MAX(sl.end_position) as last_end_pos,
+               SUM(COALESCE(sl.daily_pages, 0)) as monthly_total_pages,
+               COUNT(sl.id) as total_entries,
+               MAX(sl.maktaba) as maktaba
+        FROM study_logs sl
+        JOIN books bk ON bk.id = sl.book_id
+        WHERE sl.student_id = ? AND sl.study_date LIKE ?
+        GROUP BY bk.id
+      `).all(studentId, `${month}-%`);
+
+      res.json({
+        student,
+        month,
+        hijriMonth,
+        days,
+        summaryByBook,
+        instructions: 'مطالعے کی یومیہ حاضری درج کرتے وقت درج ذیل امور کا خیال رکھیں: مطالعے کا آغاز جس عبارت سے کیا گیا، وہ تحریر کریں۔ مطالعے کا اختتام جس عبارت پر ہوا، وہ بھی واضح طور پر لکھیں۔ ابتدائی اور انتہائی صفحہ نمبر اور جزئیات کی تعداد ضرور درج کریں۔ ہر دن کی رپورٹ اسی دن مکمل اور واضح انداز میں لکھیں۔'
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   app.post('/api/mutala', (req: SessionRequest, res) => {
     try {
       const b = req.body;
       const targetStudentId = req.actor?.role === 'student' && req.actor.studentId ? req.actor.studentId : b.student_id;
-      if (!targetStudentId || !b.book_id || !b.chapter || !b.start_position || !b.end_position || !b.study_details) {
-        return res.status(400).json({ error: 'All required study fields must be provided' });
+      const chapter = b.chapter || b.start_title || 'مطالعہ';
+      const studyDetails = b.study_details || b.juziyat_notes || b.start_title || 'یومیہ مطالعہ';
+      const startPos = b.start_position || '1';
+      const endPos = b.end_position || startPos;
+      if (!targetStudentId || !b.book_id) {
+        return res.status(400).json({ error: 'Student and Book are required' });
       }
+
+      const numStart = parseInt(startPos, 10);
+      const numEnd = parseInt(endPos, 10);
+      const computedDailyPages = !isNaN(numStart) && !isNaN(numEnd) && numEnd >= numStart
+        ? (numEnd - numStart + 1)
+        : (parseInt(b.daily_pages, 10) || 1);
+
+      const prevSum = db.prepare(`
+        SELECT COALESCE(SUM(daily_pages), 0) as s FROM study_logs
+        WHERE student_id = ? AND book_id = ? AND study_date <= ?
+      `).get(targetStudentId, b.book_id, b.study_date || new Date().toISOString().slice(0, 10)) as { s: number };
+      const computedCumulative = (prevSum?.s || 0) + computedDailyPages;
+
       const id = uid();
       db.prepare(`
-        INSERT INTO study_logs (id, student_id, study_date, book_id, chapter, start_position, end_position, study_details, student_comments, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+        INSERT INTO study_logs (
+          id, student_id, study_date, book_id, chapter, start_position, end_position, study_details, student_comments, status,
+          maktaba, start_title, end_title, daily_pages, cumulative_pages, juziyat_notes
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?)
       `).run(
         id,
         targetStudentId,
         b.study_date || new Date().toISOString().slice(0, 10),
         b.book_id,
-        b.chapter,
-        b.start_position,
-        b.end_position,
-        b.study_details,
-        b.student_comments || null
+        chapter,
+        startPos,
+        endPos,
+        studyDetails,
+        b.student_comments || null,
+        b.maktaba || null,
+        b.start_title || null,
+        b.end_title || null,
+        computedDailyPages,
+        b.cumulative_pages || computedCumulative,
+        b.juziyat_notes || null
       );
       logAudit(req, 'MUTALA_SUBMITTED', 'study_log', id, { studentId: targetStudentId, chapter: b.chapter });
       res.status(201).json(db.prepare('SELECT * FROM study_logs WHERE id = ?').get(id));
@@ -1164,10 +1531,18 @@ async function startServer() {
         ? 'pending'
         : (b.status ?? existing.status);
 
+      const numStart = parseInt(b.start_position ?? existing.start_position, 10);
+      const numEnd = parseInt(b.end_position ?? existing.end_position, 10);
+      const computedDailyPages = !isNaN(numStart) && !isNaN(numEnd) && numEnd >= numStart
+        ? (numEnd - numStart + 1)
+        : (parseInt(b.daily_pages, 10) || existing.daily_pages || 0);
+
       db.prepare(`
         UPDATE study_logs SET
           study_date = ?, book_id = ?, chapter = ?, start_position = ?, end_position = ?,
-          study_details = ?, student_comments = ?, status = ?, updated_at = datetime('now')
+          study_details = ?, student_comments = ?, status = ?,
+          maktaba = ?, start_title = ?, end_title = ?, daily_pages = ?, cumulative_pages = ?, juziyat_notes = ?,
+          updated_at = datetime('now')
         WHERE id = ?
       `).run(
         b.study_date ?? existing.study_date,
@@ -1178,10 +1553,29 @@ async function startServer() {
         b.study_details ?? existing.study_details,
         b.student_comments !== undefined ? b.student_comments : existing.student_comments,
         nextStatus,
+        b.maktaba !== undefined ? b.maktaba : existing.maktaba,
+        b.start_title !== undefined ? b.start_title : existing.start_title,
+        b.end_title !== undefined ? b.end_title : existing.end_title,
+        computedDailyPages,
+        b.cumulative_pages !== undefined ? b.cumulative_pages : existing.cumulative_pages,
+        b.juziyat_notes !== undefined ? b.juziyat_notes : existing.juziyat_notes,
         id
       );
       logAudit(req, 'MUTALA_UPDATED', 'study_log', id, { range: `${b.start_position ?? existing.start_position} - ${b.end_position ?? existing.end_position}` });
       res.json(db.prepare('SELECT * FROM study_logs WHERE id = ?').get(id));
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.delete('/api/mutala/:id', (req: SessionRequest, res) => {
+    try {
+      const { id } = req.params;
+      const existing = db.prepare('SELECT * FROM study_logs WHERE id = ?').get(id) as any;
+      if (!existing) return res.status(404).json({ error: 'Study log not found' });
+      db.prepare('DELETE FROM study_logs WHERE id = ?').run(id);
+      logAudit(req, 'MUTALA_DELETED', 'study_log', id, {});
+      res.json({ deleted: true });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
@@ -1278,6 +1672,41 @@ async function startServer() {
       );
       logAudit(req, 'SCHEDULE_ADDED', 'teacher_assignment', id, { teacherId: b.teacher_id, classId: b.class_id, subjectId: b.subject_id });
       res.status(201).json(db.prepare('SELECT * FROM teacher_assignments WHERE id = ?').get(id));
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.put('/api/schedule/:id', requireRole('admin', 'office_staff'), (req: SessionRequest, res) => {
+    try {
+      const { id } = req.params;
+      const b = req.body;
+      db.prepare(`
+        UPDATE teacher_assignments
+        SET teacher_id = COALESCE(?, teacher_id),
+            class_id = COALESCE(?, class_id),
+            subject_id = COALESCE(?, subject_id),
+            book_id = ?,
+            session_id = COALESCE(?, session_id),
+            start_time = COALESCE(?, start_time),
+            end_time = COALESCE(?, end_time),
+            days_of_week = COALESCE(?, days_of_week),
+            room_name = COALESCE(?, room_name)
+        WHERE id = ?
+      `).run(
+        b.teacher_id,
+        b.class_id,
+        b.subject_id,
+        b.book_id || null,
+        b.session_id,
+        b.start_time,
+        b.end_time,
+        b.days_of_week,
+        b.room_name,
+        id
+      );
+      logAudit(req, 'SCHEDULE_UPDATED', 'teacher_assignment', id, { teacherId: b.teacher_id, classId: b.class_id, subjectId: b.subject_id, bookId: b.book_id });
+      res.json(db.prepare('SELECT * FROM teacher_assignments WHERE id = ?').get(id));
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
@@ -1581,6 +2010,111 @@ async function startServer() {
     res.json({ lessons, bookProgress });
   });
 
+  // Per-Teacher Monthly Lessons Register (Matching Takhasus Teachers Manual PDF Sheet - Image 4)
+  app.get('/api/lessons/teacher-monthly', (req: SessionRequest, res) => {
+    try {
+      const teacherId = (req.query.teacherId as string) || (req.actor?.role === 'teacher' ? req.actor.teacherId : '') || 'tch-1';
+      const month = (req.query.month as string) || new Date().toISOString().slice(0, 7);
+      const bookId = (req.query.bookId as string) || '';
+
+      const teacher = db.prepare('SELECT * FROM teachers WHERE id = ?').get(teacherId) as any ||
+                      db.prepare('SELECT * FROM teachers LIMIT 1').get() as any;
+
+      const [yearStr, monthStr] = month.split('-');
+      const year = parseInt(yearStr, 10);
+      const mNum = parseInt(monthStr, 10);
+      const daysCount = new Date(year, mNum, 0).getDate();
+
+      let book = null;
+      if (bookId) {
+        book = db.prepare('SELECT * FROM books WHERE id = ?').get(bookId) as any;
+      }
+      if (!book) {
+        book = db.prepare(`
+          SELECT b.* FROM books b
+          JOIN lesson_records lr ON lr.book_id = b.id
+          WHERE lr.teacher_id = ?
+          ORDER BY lr.lesson_date DESC LIMIT 1
+        `).get(teacher?.id || teacherId) as any || db.prepare('SELECT * FROM books LIMIT 1').get() as any;
+      }
+
+      let where = 'WHERE lr.teacher_id = ? AND lr.lesson_date LIKE ?';
+      const params: any[] = [teacher?.id || teacherId, `${month}-%`];
+      if (book?.id) {
+        where += ' AND lr.book_id = ?';
+        params.push(book.id);
+      }
+
+      const lessons = db.prepare(`
+        SELECT lr.*, b.title_en as book_title_en, b.title_ur as book_title_ur, b.total_pages
+        FROM lesson_records lr
+        JOIN books b ON b.id = lr.book_id
+        ${where}
+        ORDER BY lr.lesson_date ASC, lr.created_at ASC
+      `).all(...params) as any[];
+
+      const lessonsByDate: Record<string, any[]> = {};
+      for (const l of lessons) {
+        if (!lessonsByDate[l.lesson_date]) lessonsByDate[l.lesson_date] = [];
+        lessonsByDate[l.lesson_date].push(l);
+      }
+
+      const urduDays = ['اتوار', 'پیر', 'منگل', 'بدھ', 'جمعرات', 'جمعہ', 'ہفتہ'];
+      const days = [];
+      let runningCumulative = 0;
+
+      for (let d = 1; d <= daysCount; d++) {
+        const dStr = String(d).padStart(2, '0');
+        const fullDate = `${month}-${dStr}`;
+        const dObj = new Date(year, mNum - 1, d);
+        const dayOfWeek = dObj.getDay();
+        const isSunday = dayOfWeek === 0;
+        const dayName = urduDays[dayOfWeek];
+
+        const dayEntries = lessonsByDate[fullDate] || [];
+        const primaryEntry = dayEntries[0] || null;
+
+        if (primaryEntry) {
+          const dp = Number(primaryEntry.daily_pages) || 1;
+          runningCumulative += dp;
+        }
+
+        days.push({
+          dayNumber: d,
+          date: fullDate,
+          dayFormatted: `${d}.`,
+          dayWithWeekday: `${d}. (${dayName})`,
+          dayName,
+          isSunday,
+          entries: dayEntries,
+          primaryEntry: primaryEntry ? {
+            ...primaryEntry,
+            cumulative_pages: primaryEntry.cumulative_pages || runningCumulative
+          } : null
+        });
+      }
+
+      const hijriMap: Record<string, string> = {
+        '2026-10': 'جمادی الاول 1448ھ',
+        '2026-11': 'جمادی الثانی 1448ھ',
+        '2026-12': 'رجب المرجب 1448ھ',
+        '2027-01': 'شعبان المعظم 1448ھ',
+        '2027-02': 'رمضان المبارک 1448ھ',
+      };
+
+      res.json({
+        teacher,
+        book,
+        month,
+        hijriMonth: hijriMap[month] || 'جمادی الثانی 1448ھ',
+        days,
+        totalLessons: lessons.length
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   app.post('/api/lessons', requireRole('admin', 'teacher'), (req: SessionRequest, res) => {
     try {
       const b = req.body;
@@ -1589,9 +2123,22 @@ async function startServer() {
         return res.status(400).json({ error: 'Class, subject, book, start position, and end position are required' });
       }
       const id = uid();
+      let dailyPages = b.daily_pages ? Number(b.daily_pages) : 0;
+      if (!dailyPages) {
+        const s = parseInt(String(b.start_position).replace(/\D/g, ''), 10);
+        const e = parseInt(String(b.end_position).replace(/\D/g, ''), 10);
+        dailyPages = (!isNaN(s) && !isNaN(e) && e >= s) ? (e - s + 1) : 1;
+      }
+      const prevTotal = (db.prepare('SELECT COALESCE(SUM(daily_pages), 0) as tot FROM lesson_records WHERE book_id = ?').get(b.book_id) as any)?.tot || 0;
+      const cumulativePages = b.cumulative_pages ? Number(b.cumulative_pages) : (prevTotal + dailyPages);
+
       db.prepare(`
-        INSERT INTO lesson_records (id, teacher_id, lesson_date, class_id, batch_id, subject_id, book_id, start_position, end_position, homework, remarks)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO lesson_records (
+          id, teacher_id, lesson_date, class_id, batch_id, subject_id, book_id,
+          start_position, end_position, homework, remarks,
+          start_title, end_title, lesson_timing, attendance_status, daily_pages, cumulative_pages
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         id,
         teacherId,
@@ -1603,7 +2150,13 @@ async function startServer() {
         b.start_position,
         b.end_position,
         b.homework || null,
-        b.remarks || null
+        b.remarks || null,
+        b.start_title || null,
+        b.end_title || null,
+        b.lesson_timing || 'حاضر (8:00 تا 12:00)',
+        b.attendance_status || 'present',
+        dailyPages,
+        cumulativePages
       );
       logAudit(req, 'LESSON_RECORDED', 'lesson_record', id, { bookId: b.book_id, range: `${b.start_position} - ${b.end_position}` });
       res.status(201).json(db.prepare('SELECT * FROM lesson_records WHERE id = ?').get(id));
@@ -1618,10 +2171,19 @@ async function startServer() {
       const existing = db.prepare('SELECT * FROM lesson_records WHERE id = ?').get(id) as any;
       if (!existing) return res.status(404).json({ error: 'Lesson record not found' });
       const b = req.body;
+      let dailyPages = b.daily_pages !== undefined ? Number(b.daily_pages) : existing.daily_pages;
+      if (!dailyPages) {
+        const s = parseInt(String(b.start_position ?? existing.start_position).replace(/\D/g, ''), 10);
+        const e = parseInt(String(b.end_position ?? existing.end_position).replace(/\D/g, ''), 10);
+        dailyPages = (!isNaN(s) && !isNaN(e) && e >= s) ? (e - s + 1) : (existing.daily_pages || 1);
+      }
+      const cumulativePages = b.cumulative_pages !== undefined ? Number(b.cumulative_pages) : existing.cumulative_pages;
+
       db.prepare(`
         UPDATE lesson_records SET
           teacher_id = ?, lesson_date = ?, class_id = ?, subject_id = ?, book_id = ?,
-          start_position = ?, end_position = ?, homework = ?, remarks = ?
+          start_position = ?, end_position = ?, homework = ?, remarks = ?,
+          start_title = ?, end_title = ?, lesson_timing = ?, attendance_status = ?, daily_pages = ?, cumulative_pages = ?
         WHERE id = ?
       `).run(
         b.teacher_id ?? existing.teacher_id,
@@ -1633,6 +2195,12 @@ async function startServer() {
         b.end_position ?? existing.end_position,
         b.homework !== undefined ? b.homework : existing.homework,
         b.remarks !== undefined ? b.remarks : existing.remarks,
+        b.start_title !== undefined ? b.start_title : existing.start_title,
+        b.end_title !== undefined ? b.end_title : existing.end_title,
+        b.lesson_timing !== undefined ? b.lesson_timing : existing.lesson_timing,
+        b.attendance_status !== undefined ? b.attendance_status : existing.attendance_status,
+        dailyPages,
+        cumulativePages,
         id
       );
       logAudit(req, 'LESSON_UPDATED', 'lesson_record', id, { range: `${b.start_position ?? existing.start_position} - ${b.end_position ?? existing.end_position}` });

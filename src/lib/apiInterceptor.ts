@@ -20,8 +20,8 @@ export function installApiInterceptor() {
       const contentType = response.headers.get('content-type') || '';
 
       // If the server returned HTML (e.g., Vercel rewrote /api to index.html <!doctype ...>)
-      // or a 404 / 500 error, switch to client-side localStorage fallback
-      if (contentType.includes('text/html') || !response.ok) {
+      // or a 404 / 502+ error, switch to client-side localStorage fallback
+      if (contentType.includes('text/html') || response.status === 404 || response.status >= 502) {
         return handleClientFallback(urlString, init);
       }
 

@@ -599,16 +599,16 @@ export const ReportsView: React.FC = () => {
       {type === 'attendance' && (
         <div className="space-y-5">
           <div className="rounded-lg border border-[#DCE4E0] bg-white overflow-x-auto">
-            <table className="w-full text-xs">
+            <table className="w-full text-xs min-w-[650px]">
               <thead>
                 <tr className="border-b border-[#E5ECE8] bg-[#F6F8F7] text-[#5A6D65]">
-                  <th className="px-4 py-3 text-start">{t('studentId')}</th>
-                  <th className="px-4 py-3 text-start">{t('fullNameUr')}</th>
-                  <th className="px-4 py-3 text-start">{t('classLabel')}</th>
-                  <th className="px-4 py-3 text-end">{lang === 'ur' ? 'کل اندراج' : 'Total'}</th>
-                  <th className="px-4 py-3 text-end">{t('present')}</th>
-                  <th className="px-4 py-3 text-end">{t('absent')}</th>
-                  <th className="px-4 py-3 text-end">{t('attendancePct')}</th>
+                  <th className="px-4 py-3 text-start whitespace-nowrap">{t('studentId')}</th>
+                  <th className="px-4 py-3 text-start whitespace-nowrap min-w-[140px]">{t('fullNameUr')}</th>
+                  <th className="px-4 py-3 text-start whitespace-nowrap">{t('classLabel')}</th>
+                  <th className="px-4 py-3 text-end whitespace-nowrap">{lang === 'ur' ? 'کل اندراج' : 'Total'}</th>
+                  <th className="px-4 py-3 text-end whitespace-nowrap">{t('present')}</th>
+                  <th className="px-4 py-3 text-end whitespace-nowrap">{t('absent')}</th>
+                  <th className="px-4 py-3 text-end whitespace-nowrap">{t('attendancePct')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#EEF2F0]">
@@ -619,7 +619,7 @@ export const ReportsView: React.FC = () => {
                       return (
                         <tr key={r.id}>
                           <td className="px-4 py-3 font-mono-code font-semibold text-[#065F46] whitespace-nowrap">{r.student_code}</td>
-                          <td className="px-4 py-3 whitespace-nowrap">{pick(r.full_name, r.full_name_ur)}</td>
+                          <td className="px-4 py-3 whitespace-nowrap min-w-[140px]">{pick(r.full_name, r.full_name_ur)}</td>
                           <td className="px-4 py-3 text-[#5A6D65] whitespace-nowrap">{pick(r.class_name_en, r.class_name_ur)}</td>
                           <td className="px-4 py-3 text-end tabular-nums">{r.att_total}</td>
                           <td className="px-4 py-3 text-end tabular-nums text-[#15803D]">{r.att_present}</td>
@@ -738,15 +738,15 @@ export const ReportsView: React.FC = () => {
 
       {type === 'studentPerf' && (
         <div className="rounded-lg border border-[#DCE4E0] bg-white overflow-x-auto">
-          <table className="w-full text-xs">
+          <table className="w-full text-xs min-w-[650px]">
             <thead>
               <tr className="border-b border-[#E5ECE8] bg-[#F6F8F7] text-[#5A6D65]">
-                <th className="px-4 py-3 text-start">{t('studentId')}</th>
-                <th className="px-4 py-3 text-start">{t('fullNameUr')}</th>
-                <th className="px-4 py-3 text-start">{t('classLabel')}</th>
-                <th className="px-4 py-3 text-end">{t('attendancePct')}</th>
-                <th className="px-4 py-3 text-end">{t('navMutala')}</th>
-                <th className="px-4 py-3 text-end">{t('totalMarks')}</th>
+                <th className="px-4 py-3 text-start whitespace-nowrap">{t('studentId')}</th>
+                <th className="px-4 py-3 text-start whitespace-nowrap min-w-[140px]">{t('fullNameUr')}</th>
+                <th className="px-4 py-3 text-start whitespace-nowrap">{t('classLabel')}</th>
+                <th className="px-4 py-3 text-end whitespace-nowrap">{t('attendancePct')}</th>
+                <th className="px-4 py-3 text-end whitespace-nowrap">{t('navMutala')}</th>
+                <th className="px-4 py-3 text-end whitespace-nowrap">{t('totalMarks')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#EEF2F0]">
@@ -757,7 +757,7 @@ export const ReportsView: React.FC = () => {
                     return (
                       <tr key={r.id}>
                         <td className="px-4 py-3 font-mono-code font-semibold text-[#065F46] whitespace-nowrap">{r.student_code}</td>
-                        <td className="px-4 py-3 whitespace-nowrap">{pick(r.full_name, r.full_name_ur)}</td>
+                        <td className="px-4 py-3 whitespace-nowrap min-w-[140px]">{pick(r.full_name, r.full_name_ur)}</td>
                         <td className="px-4 py-3 text-[#5A6D65] whitespace-nowrap">{pick(r.class_name_en, r.class_name_ur)}</td>
                         <td className="px-4 py-3 text-end font-semibold tabular-nums">{pct}%</td>
                         <td className="px-4 py-3 text-end tabular-nums">

@@ -180,16 +180,16 @@ export const ExamsView: React.FC = () => {
 
         {/* Marks Entry Table */}
         <div className="no-print rounded-lg border border-[#DCE4E0] bg-white overflow-x-auto">
-          <table className="w-full text-xs">
+          <table className="w-full text-xs min-w-[720px]">
             <thead>
               <tr className="border-b border-[#E5ECE8] bg-[#F6F8F7] text-[#5A6D65]">
-                <th className="px-4 py-3 text-start font-medium">{t('studentId')}</th>
-                <th className="px-4 py-3 text-start font-medium">{t('fullNameUr')}</th>
-                <th className="px-4 py-3 text-end font-medium">{t('writtenMarks')} ({activeSubject?.written_max_marks || 80})</th>
-                <th className="px-4 py-3 text-end font-medium">{t('oralMarks')} ({activeSubject?.oral_max_marks || 20})</th>
-                <th className="px-4 py-3 text-end font-medium">{t('totalMarks')}</th>
-                <th className="px-4 py-3 text-start font-medium">{t('grade')}</th>
-                <th className="px-4 py-3 text-end font-medium">{t('resultCard')}</th>
+                <th className="px-4 py-3 text-start font-medium whitespace-nowrap">{t('studentId')}</th>
+                <th className="px-4 py-3 text-start font-medium whitespace-nowrap min-w-[140px]">{t('fullNameUr')}</th>
+                <th className="px-4 py-3 text-end font-medium whitespace-nowrap">{t('writtenMarks')} ({activeSubject?.written_max_marks || 80})</th>
+                <th className="px-4 py-3 text-end font-medium whitespace-nowrap">{t('oralMarks')} ({activeSubject?.oral_max_marks || 20})</th>
+                <th className="px-4 py-3 text-end font-medium whitespace-nowrap">{t('totalMarks')}</th>
+                <th className="px-4 py-3 text-start font-medium whitespace-nowrap">{t('grade')}</th>
+                <th className="px-4 py-3 text-end font-medium whitespace-nowrap">{t('resultCard')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#EEF2F0]">
@@ -201,8 +201,8 @@ export const ExamsView: React.FC = () => {
                 );
                 return (
                   <tr key={st.id}>
-                    <td className="px-4 py-3 font-mono-code font-semibold text-[#065F46]">{st.student_code}</td>
-                    <td className="px-4 py-3 font-medium">{pick(st.full_name, st.full_name_ur)}</td>
+                    <td className="px-4 py-3 font-mono-code font-semibold text-[#065F46] whitespace-nowrap">{st.student_code}</td>
+                    <td className="px-4 py-3 font-medium whitespace-nowrap min-w-[140px]">{pick(st.full_name, st.full_name_ur)}</td>
                     <td className="px-4 py-3 text-end">
                       {canManageExams ? (
                         <input

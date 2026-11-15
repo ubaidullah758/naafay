@@ -504,11 +504,11 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({
               <dl className="grid grid-cols-3 gap-2 text-xs">
                 <dt className="text-[#5A6D65]">{t('studentId')}</dt>
                 <dd className="col-span-2 font-mono-code font-semibold text-[#111C18]">{st.student_code}</dd>
-                <dt className="text-[#5A6D65]">{t('fullNameUr')}</dt>
-                <dd className="col-span-2 text-[#111C18]">{st.full_name_ur}</dd>
-                <dt className="text-[#5A6D65]">{t('fullName')}</dt>
+                <dt className="text-[#5A6D65]">{lang === 'ur' ? 'مکمل نام' : 'Full Name'}</dt>
+                <dd className="col-span-2 text-[#111C18]">{st.full_name_ur || st.full_name}</dd>
+                <dt className="text-[#5A6D65]">{lang === 'ur' ? 'انگریزی نام' : 'English Name'}</dt>
                 <dd className="col-span-2 text-[#111C18] font-poppins">{st.full_name}</dd>
-                <dt className="text-[#5A6D65]">{t('fatherNameUr')}</dt>
+                <dt className="text-[#5A6D65]">{lang === 'ur' ? 'ولدیت' : "Father's Name"}</dt>
                 <dd className="col-span-2 text-[#111C18]">{pick(st.father_name, st.father_name_ur)}</dd>
                 <dt className="text-[#5A6D65]">{t('dob')}</dt>
                 <dd className="col-span-2 tabular-nums text-[#111C18]">{st.date_of_birth || '—'}</dd>

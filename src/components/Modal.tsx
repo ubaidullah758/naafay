@@ -33,14 +33,14 @@ export const Modal: React.FC<ModalProps> = ({
 }) => {
   const panelRef = useRef<HTMLDivElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   const handleKeyDown = useCallback(
     (event: KeyboardEvent) => {
-      if (!open) return;
-
       if (event.key === 'Escape') {
         event.stopPropagation();
-        onClose();
+        onCloseRef.current();
         return;
       }
 
@@ -69,7 +69,7 @@ export const Modal: React.FC<ModalProps> = ({
         last.focus();
       }
     },
-    [open, onClose]
+    []
   );
 
   useEffect(() => {
@@ -77,15 +77,19 @@ export const Modal: React.FC<ModalProps> = ({
 
     previouslyFocused.current = document.activeElement as HTMLElement | null;
     const panel = panelRef.current;
-    const firstFocusable = panel?.querySelector<HTMLElement>(FOCUSABLE);
-    (firstFocusable ?? panel)?.focus();
+    // Set initial focus once when the modal is opened
+    const firstInput = panel?.querySelector<HTMLElement>('input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled])')
+      || panel?.querySelector<HTMLElement>(FOCUSABLE);
+    (firstInput ?? panel)?.focus();
 
     const originalOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    document.addEventListener('keydown', handleKeyDown, true);
+
+    const keyListener = (e: KeyboardEvent) => handleKeyDown(e);
+    document.addEventListener('keydown', keyListener, true);
 
     return () => {
-      document.removeEventListener('keydown', handleKeyDown, true);
+      document.removeEventListener('keydown', keyListener, true);
       document.body.style.overflow = originalOverflow;
       previouslyFocused.current?.focus?.();
     };
