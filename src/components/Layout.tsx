@@ -54,8 +54,11 @@ export const Layout: React.FC<LayoutProps> = ({ activeSection, onNavigate, onOpe
   const { user, signInAsRole, signOut } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
-    return localStorage.getItem('naafay_sidebar_collapsed') === 'true';
+    const saved = localStorage.getItem('naafay_sidebar_collapsed');
+    return saved !== 'false'; // Default to true (icon-only compact mode)
   });
+
+  const homeSection: NavSection = user?.role === 'admin' ? 'admin_panel' : 'fatwa_dashboard';
 
   const toggleSidebarCollapsed = () => {
     setSidebarCollapsed((prev) => {
@@ -169,39 +172,49 @@ export const Layout: React.FC<LayoutProps> = ({ activeSection, onNavigate, onOpe
               : 'left-0 -translate-x-full lg:translate-x-0'
         }`}
       >
-        <div className={`flex items-center ${sidebarCollapsed ? 'justify-center p-3' : 'justify-between px-4 py-4'} border-b border-white/10`}>
-          <div className="flex items-center gap-3 min-w-0">
+        <div className={`flex items-center ${sidebarCollapsed ? 'justify-center p-3' : 'justify-between px-4 py-3.5'} border-b border-white/10`}>
+          <button
+            type="button"
+            onClick={() => {
+              onNavigate(homeSection);
+              setSidebarOpen(false);
+            }}
+            className="flex items-center gap-3 min-w-0 text-start group cursor-pointer"
+            title={lang === 'ur' ? 'پہلا صفحہ (ہوم)' : 'Home Page'}
+          >
             <img
               src="/assets/aistudio/naafay_logo_8857642c.jpg"
               alt="Naafay Darul Ifta"
               referrerPolicy="no-referrer"
-              className="h-10 w-10 shrink-0 rounded-full bg-white object-contain p-0.5 border border-white/30"
+              className="h-10 w-10 shrink-0 rounded-full bg-white object-contain p-0.5 border border-white/30 group-hover:scale-105 transition-transform"
             />
             {!sidebarCollapsed && (
               <div className="min-w-0">
-                <div className="text-sm font-bold text-white truncate">{t('brandName')}</div>
+                <div className="text-sm font-bold text-white truncate group-hover:text-[#34D399] transition-colors">{t('brandName')}</div>
                 <div className="text-[11px] text-sky-200/90 truncate">{t('brandSub')}</div>
               </div>
             )}
-          </div>
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={toggleSidebarCollapsed}
-              className="hidden lg:flex p-1.5 text-sky-200 hover:text-white rounded hover:bg-white/10 transition-colors"
-              title={sidebarCollapsed ? (lang === 'ur' ? 'سائیڈ بار کھولیں' : 'Expand Sidebar') : (lang === 'ur' ? 'سائیڈ بار سمیٹیں' : 'Collapse Sidebar')}
-            >
-              {sidebarCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
-            </button>
-            <button
-              type="button"
-              onClick={() => setSidebarOpen(false)}
-              className="lg:hidden p-1.5 text-sky-100 hover:text-white"
-              aria-label="Close navigation"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
+          </button>
+          {!sidebarCollapsed && (
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={toggleSidebarCollapsed}
+                className="hidden lg:flex p-1.5 text-sky-200 hover:text-white rounded hover:bg-white/10 transition-colors"
+                title={lang === 'ur' ? 'سائیڈ بار سمیٹیں' : 'Collapse Sidebar'}
+              >
+                <PanelLeftClose className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setSidebarOpen(false)}
+                className="lg:hidden p-1.5 text-sky-100 hover:text-white"
+                aria-label="Close navigation"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+          )}
         </div>
 
         <nav className="flex-1 overflow-y-auto px-2 lg:px-3 py-4 space-y-5">
@@ -350,30 +363,35 @@ export const Layout: React.FC<LayoutProps> = ({ activeSection, onNavigate, onOpe
 
       {/* Main Content */}
       <div className="flex-1 min-w-0 flex flex-col">
-        <header className="no-print sticky top-0 z-20 bg-white border-b border-[#D9E2EC] px-4 lg:px-6 py-2.5 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 min-w-0">
+        <header className="no-print sticky top-0 z-20 bg-white border-b border-[#D9E2EC] px-3 lg:px-5 py-2 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 min-w-0">
             <button
               type="button"
               onClick={() => setSidebarOpen(true)}
-              className="lg:hidden rounded-md border border-[#D9E2EC] p-2 text-[#0B2545] hover:bg-[#F4F7FA]"
+              className="lg:hidden rounded-md border border-[#D9E2EC] p-1.5 text-[#0B2545] hover:bg-[#F4F7FA]"
               aria-label="Open navigation"
             >
-              <Menu className="h-5 w-5" />
+              <Menu className="h-4 w-4" />
             </button>
             <button
               type="button"
               onClick={toggleSidebarCollapsed}
-              className="hidden lg:inline-flex items-center gap-1.5 rounded-md border border-[#D9E2EC] px-2.5 py-1.5 text-xs text-[#0B2545] hover:bg-[#F4F7FA] transition-colors shrink-0"
-              title={sidebarCollapsed ? (lang === 'ur' ? 'سائیڈ بار کھولیں' : 'Expand Sidebar') : (lang === 'ur' ? 'ڈیش بورڈ بڑا کریں (سائیڈ بار سمیٹیں)' : 'Collapse Sidebar')}
+              className="hidden lg:inline-flex p-1.5 rounded-md border border-[#D9E2EC] text-[#0B2545] hover:bg-[#F4F7FA] transition-colors shrink-0"
+              title={sidebarCollapsed ? (lang === 'ur' ? 'سائیڈ بار کھولیں' : 'Expand Sidebar') : (lang === 'ur' ? 'سائیڈ بار سمیٹیں' : 'Collapse Sidebar')}
+              aria-label="Toggle sidebar"
             >
               {sidebarCollapsed ? <PanelLeftOpen className="h-4 w-4 text-[#057A4B]" /> : <PanelLeftClose className="h-4 w-4 text-[#0B2545]" />}
-              <span className="text-[11px] font-semibold text-[#486581]">
-                {sidebarCollapsed ? (lang === 'ur' ? 'سائیڈ بار' : 'Sidebar') : (lang === 'ur' ? 'بڑا منظر' : 'Expand')}
-              </span>
             </button>
             <div className="flex items-center gap-2 text-sm">
-              <span className="font-semibold text-[#0B2545] hidden sm:inline whitespace-nowrap">{t('brandName')}</span>
-              {activeNav && activeNav.id !== 'admin_panel' && (
+              <button
+                type="button"
+                onClick={() => onNavigate(homeSection)}
+                className="font-bold text-[#0B2545] hover:text-[#057A4B] transition-colors cursor-pointer text-start hidden sm:inline whitespace-nowrap"
+                title={lang === 'ur' ? 'پہلا صفحہ (ہوم)' : 'Home Page'}
+              >
+                {t('brandName')}
+              </button>
+              {activeNav && activeNav.id !== homeSection && (
                 <>
                   <span className="text-[#9FB3C8] hidden sm:inline">/</span>
                   <h1 className="font-semibold text-[#057A4B] truncate">{activeNav.label}</h1>
@@ -479,14 +497,15 @@ export const Layout: React.FC<LayoutProps> = ({ activeSection, onNavigate, onOpe
             )}
           </div>
 
-          <div className="flex items-center gap-2.5 shrink-0">
+          <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
               onClick={toggleLang}
-              className="inline-flex items-center gap-1.5 rounded-md border border-[#D9E2EC] bg-white px-3 py-1.5 text-xs font-medium text-[#0B2545] hover:bg-[#F4F7FA] transition-colors whitespace-nowrap shrink-0"
+              className="inline-flex items-center gap-1 rounded-md border border-[#D9E2EC] bg-white px-2 py-1 text-[11px] font-medium text-[#0B2545] hover:bg-[#F4F7FA] transition-colors whitespace-nowrap shrink-0"
+              title={t('switchLang')}
             >
-              <Globe className="h-3.5 w-3.5 text-[#057A4B]" />
-              <span>{t('switchLang')}</span>
+              <Globe className="h-3 w-3 text-[#057A4B]" />
+              <span>{lang === 'ur' ? 'EN' : 'اردو'}</span>
             </button>
 
             {user && (

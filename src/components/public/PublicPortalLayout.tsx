@@ -118,11 +118,11 @@ export const PublicPortalLayout: React.FC<PublicPortalLayoutProps> = ({
             <button
               type="button"
               onClick={toggleLang}
-              className="inline-flex items-center gap-1.5 rounded-md border border-[#D9E2EC] px-2.5 py-1.5 text-xs font-medium text-[#243B53] hover:bg-[#F4F7FA] transition-colors whitespace-nowrap"
+              className="inline-flex items-center gap-1 rounded-md border border-[#D9E2EC] px-2 py-1 text-[11px] font-medium text-[#243B53] hover:bg-[#F4F7FA] transition-colors whitespace-nowrap shrink-0"
               title={t('switchLang')}
             >
-              <Globe className="h-3.5 w-3.5 text-[#057A4B]" />
-              <span>{lang === 'ur' ? 'English' : 'اردو'}</span>
+              <Globe className="h-3 w-3 text-[#057A4B]" />
+              <span>{lang === 'ur' ? 'EN' : 'اردو'}</span>
             </button>
             <button
               type="button"
@@ -267,10 +267,10 @@ export const PublicPortalLayout: React.FC<PublicPortalLayoutProps> = ({
           <button
             type="button"
             onClick={toggleLang}
-            className="inline-flex items-center gap-1.5 rounded bg-white/10 hover:bg-white/20 text-sky-100 px-2.5 py-1 text-xs transition-colors"
+            className="inline-flex items-center gap-1 rounded bg-white/10 hover:bg-white/20 text-sky-100 px-2 py-0.5 text-[10px] transition-colors"
           >
-            <Globe className="h-3.5 w-3.5 text-[#34D399]" />
-            <span>{t('switchLang')}</span>
+            <Globe className="h-3 w-3 text-[#34D399]" />
+            <span>{lang === 'ur' ? 'EN' : 'اردو'}</span>
           </button>
         </div>
       </footer>
