@@ -201,7 +201,7 @@ export const StudentsView: React.FC<StudentsViewProps> = ({ initialStudentId }) 
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         labelledBy="student-modal-title"
-        panelClassName="w-full max-w-2xl rounded-lg border border-[#DCE4E0] bg-white shadow-xl my-8"
+        panelClassName="w-full max-w-2xl rounded-lg border border-[#DCE4E0] bg-white shadow-xl my-4 sm:my-8 max-h-[90vh] overflow-y-auto"
       >
         <div className="px-6 py-4 border-b border-[#E5ECE8] flex items-center justify-between">
           <h3 id="student-modal-title" className="text-base font-bold text-[#111C18]">
@@ -353,9 +353,9 @@ export const StudentsView: React.FC<StudentsViewProps> = ({ initialStudentId }) 
   return (
     <div className="space-y-5">
       {/* Toolbar */}
-      <div className="rounded-lg border border-[#DCE4E0] bg-white p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-3 flex-1">
-          <div className="relative flex-1 min-w-[200px] max-w-xs">
+      <div className="rounded-lg border border-[#DCE4E0] bg-white p-3 sm:p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 flex-1">
+          <div className="relative w-full sm:w-72">
             <Search className={`h-4 w-4 text-[#64746D] absolute top-1/2 -translate-y-1/2 ${lang === 'ur' ? 'right-3' : 'left-3'}`} />
             <input
               type="text"
@@ -369,7 +369,7 @@ export const StudentsView: React.FC<StudentsViewProps> = ({ initialStudentId }) 
           <select
             value={classFilter}
             onChange={(e) => { setClassFilter(e.target.value); setPage(1); }}
-            className="rounded-md border border-[#DCE4E0] px-3 py-2 text-xs bg-white"
+            className="flex-1 sm:flex-none rounded-md border border-[#DCE4E0] px-3 py-2 text-xs bg-white min-w-[130px]"
           >
             <option value="">{t('allClasses')}</option>
             {safeClasses.map((c: any) => (
@@ -380,7 +380,7 @@ export const StudentsView: React.FC<StudentsViewProps> = ({ initialStudentId }) 
           <select
             value={statusFilter}
             onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-            className="rounded-md border border-[#DCE4E0] px-3 py-2 text-xs bg-white"
+            className="flex-1 sm:flex-none rounded-md border border-[#DCE4E0] px-3 py-2 text-xs bg-white min-w-[130px]"
           >
             <option value="">{t('allStatuses')}</option>
             <option value="active">{t('active')}</option>
@@ -393,7 +393,7 @@ export const StudentsView: React.FC<StudentsViewProps> = ({ initialStudentId }) 
           <button
             type="button"
             onClick={openAdd}
-            className="inline-flex items-center gap-2 rounded-md bg-[#065F46] px-4 py-2 text-xs font-medium text-white hover:bg-[#064E3B] whitespace-nowrap shrink-0"
+            className="inline-flex items-center justify-center gap-2 rounded-md bg-[#065F46] px-4 py-2 text-xs font-medium text-white hover:bg-[#064E3B] whitespace-nowrap shrink-0 w-full sm:w-auto"
           >
             <Plus className="h-4 w-4" />
             <span>{t('addStudent')}</span>

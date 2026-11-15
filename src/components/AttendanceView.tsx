@@ -480,25 +480,25 @@ export const AttendanceView: React.FC = () => {
       </div>
 
       {/* Controls Bar */}
-      <div className="rounded-lg border border-[#DCE4E0] bg-white p-4 flex flex-wrap items-end justify-between gap-3">
-        <div className="flex flex-wrap items-end gap-3">
+      <div className="rounded-lg border border-[#DCE4E0] bg-white p-3 sm:p-4 flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+        <div className="flex flex-wrap items-end gap-2.5 sm:gap-3">
           {subTab === 'monthly' ? (
-            <div>
+            <div className="flex-1 sm:flex-none min-w-[140px]">
               <label className="block text-[11px] text-[#5A6D65] mb-1">{lang === 'ur' ? 'مہینہ' : 'Month'}</label>
-              <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="rounded-md border border-[#DCE4E0] px-3 py-1.5 text-xs" />
+              <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="w-full sm:w-auto rounded-md border border-[#DCE4E0] px-3 py-1.5 text-xs" />
             </div>
           ) : (
-            <div>
+            <div className="flex-1 sm:flex-none min-w-[140px]">
               <label className="block text-[11px] text-[#5A6D65] mb-1">{t('date')}</label>
-              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="rounded-md border border-[#DCE4E0] px-3 py-1.5 text-xs" />
+              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full sm:w-auto rounded-md border border-[#DCE4E0] px-3 py-1.5 text-xs" />
             </div>
           )}
 
           {/* Session select was removed from top filter as requested; sessions are selected directly via table columns */}
 
-          <div>
+          <div className="flex-1 sm:flex-none min-w-[160px]">
             <label className="block text-[11px] text-[#5A6D65] mb-1">{t('classLabel')}</label>
-            <select value={classId} onChange={(e) => setClassId(e.target.value)} className="rounded-md border border-[#DCE4E0] px-3 py-1.5 text-xs bg-white">
+            <select value={classId} onChange={(e) => setClassId(e.target.value)} className="w-full sm:w-auto rounded-md border border-[#DCE4E0] px-3 py-1.5 text-xs bg-white">
               <option value="">{t('allClasses')}</option>
               {(lookups?.classes || []).map((c: any) => (
                 <option key={c.id} value={c.id}>{pick(c.name_en, c.name_ur)}</option>
@@ -507,13 +507,13 @@ export const AttendanceView: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
           {subTab === 'mark' && canMarkAttendance && unmarkedCount > 0 && (
             <button
               type="button"
               onClick={handleMarkAllPresent}
               disabled={saving}
-              className="inline-flex items-center gap-1.5 rounded-md border border-[#065F46]/40 bg-white px-3 py-2 text-xs font-medium text-[#065F46] hover:bg-[#065F46]/5 whitespace-nowrap disabled:opacity-60"
+              className="flex-1 sm:flex-none justify-center inline-flex items-center gap-1.5 rounded-md border border-[#065F46]/40 bg-white px-3 py-2 text-xs font-medium text-[#065F46] hover:bg-[#065F46]/5 whitespace-nowrap disabled:opacity-60"
             >
               <Check className="h-3.5 w-3.5" />
               <span>
@@ -530,7 +530,7 @@ export const AttendanceView: React.FC = () => {
               <button
                 type="button"
                 onClick={subTab === 'daily' ? exportDailyExcel : exportMonthlyExcel}
-                className="inline-flex items-center gap-1.5 rounded-md border border-[#DCE4E0] bg-white px-3 py-1.5 text-xs font-medium text-[#111C18] hover:bg-[#F6F8F7] whitespace-nowrap"
+                className="flex-1 sm:flex-none justify-center inline-flex items-center gap-1.5 rounded-md border border-[#DCE4E0] bg-white px-3 py-1.5 text-xs font-medium text-[#111C18] hover:bg-[#F6F8F7] whitespace-nowrap"
               >
                 <Download className="h-3.5 w-3.5 text-[#065F46]" />
                 <span>{t('exportExcel')}</span>
@@ -538,7 +538,7 @@ export const AttendanceView: React.FC = () => {
               <button
                 type="button"
                 onClick={subTab === 'daily' ? exportDailyPdf : exportMonthlyPdf}
-                className="inline-flex items-center gap-1.5 rounded-md bg-[#065F46] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#064E3B] whitespace-nowrap"
+                className="flex-1 sm:flex-none justify-center inline-flex items-center gap-1.5 rounded-md bg-[#065F46] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#064E3B] whitespace-nowrap"
               >
                 <FileText className="h-3.5 w-3.5" />
                 <span>{t('exportPdf')}</span>

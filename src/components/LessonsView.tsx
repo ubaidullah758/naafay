@@ -334,8 +334,8 @@ export const LessonsView: React.FC = () => {
 
       {/* Record / Edit Lesson Modal */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 overflow-y-auto">
-          <div className="w-full max-w-lg rounded-lg border border-[#DCE4E0] bg-white p-6 shadow-xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-3 sm:p-4 overflow-y-auto">
+          <div className="w-full max-w-lg rounded-lg border border-[#DCE4E0] bg-white p-4 sm:p-6 shadow-xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-[#E5ECE8]">
               <h3 className="text-sm text-[#111C18]">
                 {editingLesson ? (lang === 'ur' ? 'سبق میں ترمیم / اپ ڈیٹ کریں' : 'Update Lesson Record') : t('recordLesson')}

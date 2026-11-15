@@ -28,7 +28,7 @@ export const Modal: React.FC<ModalProps> = ({
   onClose,
   labelledBy,
   children,
-  panelClassName = 'w-full max-w-md rounded-lg border border-[#DCE4E0] bg-white p-6 shadow-lg',
+  panelClassName = 'w-full max-w-md rounded-lg border border-[#DCE4E0] bg-white p-4 sm:p-6 shadow-lg max-h-[90vh] overflow-y-auto',
   closeOnBackdrop = true,
 }) => {
   const panelRef = useRef<HTMLDivElement>(null);
@@ -95,7 +95,7 @@ export const Modal: React.FC<ModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-3 sm:p-4 overflow-y-auto"
       role="dialog"
       aria-modal="true"
       aria-labelledby={labelledBy}

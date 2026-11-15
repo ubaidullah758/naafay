@@ -403,11 +403,11 @@ export const ReportsView: React.FC = () => {
             ))}
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
             <button
               type="button"
               onClick={handleExcel}
-              className="inline-flex items-center gap-1.5 rounded-md border border-[#DCE4E0] bg-white px-3.5 py-2 text-xs text-[#111C18] hover:bg-[#F6F8F7] whitespace-nowrap"
+              className="flex-1 sm:flex-none justify-center inline-flex items-center gap-1.5 rounded-md border border-[#DCE4E0] bg-white px-3.5 py-2 text-xs text-[#111C18] hover:bg-[#F6F8F7] whitespace-nowrap"
             >
               <Download className="h-3.5 w-3.5 text-[#065F46]" />
               <span>{t('exportExcel')}</span>
@@ -415,7 +415,7 @@ export const ReportsView: React.FC = () => {
             <button
               type="button"
               onClick={handlePdf}
-              className="inline-flex items-center gap-1.5 rounded-md bg-[#065F46] px-3.5 py-2 text-xs text-white hover:bg-[#064E3B] whitespace-nowrap"
+              className="flex-1 sm:flex-none justify-center inline-flex items-center gap-1.5 rounded-md bg-[#065F46] px-3.5 py-2 text-xs text-white hover:bg-[#064E3B] whitespace-nowrap"
             >
               <FileText className="h-3.5 w-3.5" />
               <span>{t('exportPdf')}</span>

@@ -51,13 +51,13 @@ export const PublicHomeView: React.FC<PublicHomeViewProps> = ({ portalData, load
     <div className="space-y-10">
       {/* Hero Banner: Clean Institutional Focal Anchor + Quick Fatwa Search (No Cover Photo) */}
       <section className="rounded-lg border border-[#D9E2EC] bg-white overflow-hidden">
-        <div className="p-6 sm:p-8 lg:p-10 space-y-5">
-          <div className="flex items-center gap-3.5">
+        <div className="p-4 sm:p-8 lg:p-10 space-y-4 sm:space-y-5">
+          <div className="flex items-center gap-3 sm:gap-3.5">
             <img
               src="/assets/aistudio/naafay_logo_8857642c.jpg"
               alt="Naafay Darul Ifta"
               referrerPolicy="no-referrer"
-              className="h-14 w-14 rounded-full border border-[#D9E2EC] object-contain p-0.5 bg-white shrink-0"
+              className="h-12 w-12 sm:h-14 sm:w-14 rounded-full border border-[#D9E2EC] object-contain p-0.5 bg-white shrink-0"
             />
             <div className="text-xs sm:text-sm text-[#057A4B]">
               <span>{settings ? pick(settings.institution_name_en, settings.institution_name_ur) : t('brandName')}</span>
@@ -68,12 +68,12 @@ export const PublicHomeView: React.FC<PublicHomeViewProps> = ({ portalData, load
             </div>
           </div>
 
-          <div className="space-y-2.5">
-            <h1 className="text-2xl sm:text-3xl font-bold text-[#0B2545]">
+          <div className="space-y-2 sm:space-y-2.5">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-[#0B2545]">
               {settings ? pick(settings.welcome_title_en, settings.welcome_title_ur) : t('brandName')}
             </h1>
 
-            <p className="text-sm sm:text-base text-[#243B53] max-w-3xl">
+            <p className="text-xs sm:text-sm md:text-base text-[#243B53] max-w-3xl">
               {settings
                 ? pick(settings.welcome_body_en, settings.welcome_body_ur)
                 : lang === 'ur'
@@ -84,11 +84,11 @@ export const PublicHomeView: React.FC<PublicHomeViewProps> = ({ portalData, load
 
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pt-1">
             {/* Primary & Secondary Action Buttons */}
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 w-full lg:w-auto">
               <button
                 type="button"
                 onClick={() => onNavigate({ page: 'ask' })}
-                className="inline-flex items-center gap-2 rounded-md bg-[#057A4B] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#04643D] transition-colors whitespace-nowrap"
+                className="flex-1 sm:flex-none justify-center inline-flex items-center gap-2 rounded-md bg-[#057A4B] px-4 sm:px-5 py-2.5 text-xs sm:text-sm font-semibold text-white hover:bg-[#04643D] transition-colors whitespace-nowrap"
               >
                 <FileQuestion className="h-4 w-4 shrink-0" />
                 <span>{t('askQuestionCta')}</span>
@@ -97,7 +97,7 @@ export const PublicHomeView: React.FC<PublicHomeViewProps> = ({ portalData, load
               <button
                 type="button"
                 onClick={() => onNavigate({ page: 'track' })}
-                className="inline-flex items-center gap-2 rounded-md border border-[#0B2545]/25 bg-white px-4 py-2.5 text-sm font-medium text-[#0B2545] hover:bg-[#F4F7FA] transition-colors whitespace-nowrap"
+                className="flex-1 sm:flex-none justify-center inline-flex items-center gap-2 rounded-md border border-[#0B2545]/25 bg-white px-3.5 sm:px-4 py-2.5 text-xs sm:text-sm font-medium text-[#0B2545] hover:bg-[#F4F7FA] transition-colors whitespace-nowrap"
               >
                 <SearchCheck className="h-4 w-4 text-[#0284C7] shrink-0" />
                 <span>{t('trackQuestionCta')}</span>
@@ -106,7 +106,7 @@ export const PublicHomeView: React.FC<PublicHomeViewProps> = ({ portalData, load
               <button
                 type="button"
                 onClick={() => onNavigate({ page: 'library' })}
-                className="inline-flex items-center gap-2 rounded-md border border-[#D9E2EC] bg-[#F4F7FA] px-4 py-2.5 text-sm font-medium text-[#243B53] hover:bg-[#E2E8F0] transition-colors whitespace-nowrap"
+                className="flex-1 sm:flex-none justify-center inline-flex items-center gap-2 rounded-md border border-[#D9E2EC] bg-[#F4F7FA] px-3.5 sm:px-4 py-2.5 text-xs sm:text-sm font-medium text-[#243B53] hover:bg-[#E2E8F0] transition-colors whitespace-nowrap"
               >
                 <BookOpen className="h-4 w-4 text-[#057A4B] shrink-0" />
                 <span>{t('searchFatwasCta')}</span>
@@ -133,7 +133,7 @@ export const PublicHomeView: React.FC<PublicHomeViewProps> = ({ portalData, load
               </div>
               <button
                 type="submit"
-                className="rounded-md bg-[#0B2545] px-5 py-2 text-xs sm:text-sm font-medium text-white hover:bg-[#103563] transition-colors whitespace-nowrap"
+                className="w-full sm:w-auto rounded-md bg-[#0B2545] px-5 py-2 text-xs sm:text-sm font-medium text-white hover:bg-[#103563] transition-colors whitespace-nowrap"
               >
                 {t('searchFatwasCta')}
               </button>
@@ -141,7 +141,7 @@ export const PublicHomeView: React.FC<PublicHomeViewProps> = ({ portalData, load
           </div>
         </div>
 
-        <div className="border-t border-[#E2E8F0] bg-[#F8FAFC] px-6 sm:px-8 lg:px-10 py-3 flex flex-wrap items-center justify-between gap-2 text-xs text-[#486581]">
+        <div className="border-t border-[#E2E8F0] bg-[#F8FAFC] px-4 sm:px-8 lg:px-10 py-3 flex flex-wrap items-center justify-between gap-2 text-xs text-[#486581]">
           <span className="text-[#057A4B] font-medium">
             {lang === 'ur' ? 'عوام الناس کے لیے مکمل رازداری' : 'Guaranteed Questioner Privacy'}
           </span>

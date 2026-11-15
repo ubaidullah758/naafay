@@ -72,7 +72,9 @@ export const Layout: React.FC<LayoutProps> = ({ activeSection, onNavigate, onOpe
   const [searchResults, setSearchResults] = useState<any | null>(null);
   const [searching, setSearching] = useState(false);
   const [roleMenuOpen, setRoleMenuOpen] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
+  const mobileSearchRef = useRef<HTMLDivElement>(null);
 
   const fatwaNav: Array<{ id: NavSection; label: string; icon: React.ReactNode }> = [
     { id: 'fatwa_dashboard', label: t('navFatwaDashboard'), icon: <Scale className="h-4 w-4 shrink-0" /> },
@@ -102,7 +104,10 @@ export const Layout: React.FC<LayoutProps> = ({ activeSection, onNavigate, onOpe
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      const insideDesktop = searchRef.current && searchRef.current.contains(target);
+      const insideMobile = mobileSearchRef.current && mobileSearchRef.current.contains(target);
+      if (!insideDesktop && !insideMobile) {
         setSearchResults(null);
       }
     };
@@ -161,6 +166,90 @@ export const Layout: React.FC<LayoutProps> = ({ activeSection, onNavigate, onOpe
 
   const activeNav = allNav.find((n) => n.id === activeSection);
 
+  const renderSearchResults = () => (
+    <div className="rounded-md border border-[#D9E2EC] bg-white shadow-lg z-50 max-h-80 sm:max-h-96 overflow-y-auto divide-y divide-[#EDF2F7]">
+      {searching && <div className="p-3 text-xs text-[#486581]">{t('loading')}</div>}
+      {!searching &&
+        (searchResults.fatwas?.length || 0) === 0 &&
+        (searchResults.students?.length || 0) === 0 &&
+        (searchResults.teachers?.length || 0) === 0 && (
+          <div className="p-4 text-xs text-[#486581] text-center">{t('noSearchResults')}</div>
+        )}
+
+      {(searchResults.fatwas?.length || 0) > 0 && (
+        <div className="p-2">
+          <div className="px-2 py-1 text-[11px] font-semibold text-[#0B2545]">{t('navFatwaQuestions')}</div>
+          {searchResults.fatwas.map((fq: any) => (
+            <button
+              key={fq.id}
+              type="button"
+              onClick={() => {
+                onNavigate('fatwa_questions', { fatwaId: fq.id });
+                setSearchQuery('');
+                setSearchResults(null);
+                setMobileSearchOpen(false);
+              }}
+              className="w-full flex items-center justify-between gap-2 rounded px-2.5 py-2 text-start text-xs hover:bg-[#F4F7FA]"
+            >
+              <span className="font-medium text-[#0F1F38] truncate">{pick(fq.subject_title, fq.subject_title_ur)}</span>
+              <span className="font-mono-code text-[#057A4B] shrink-0">{fq.issued_fatwa_number || fq.fatwa_code}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {(searchResults.students?.length || 0) > 0 && (
+        <div className="p-2">
+          <div className="px-2 py-1 text-[11px] font-semibold text-[#486581]">{t('navStudents')}</div>
+          {searchResults.students.map((st: any) => (
+            <button
+              key={st.id}
+              type="button"
+              onClick={() => {
+                onNavigate('students', { studentId: st.id });
+                setSearchQuery('');
+                setSearchResults(null);
+                setMobileSearchOpen(false);
+              }}
+              className="w-full flex items-center justify-between rounded px-2.5 py-2 text-start text-xs hover:bg-[#F4F7FA]"
+            >
+              <span className="font-medium text-[#0F1F38] truncate">{pick(st.full_name, st.full_name_ur)}</span>
+              <div className="flex items-center gap-2 shrink-0">
+                {st.phone && <span className="font-mono-code text-[11px] text-[#5A6D65]" dir="ltr">{formatPakistaniMobile(st.phone)}</span>}
+                <span className="font-mono-code text-[#0284C7]">{st.student_code}</span>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {(searchResults.teachers?.length || 0) > 0 && (
+        <div className="p-2">
+          <div className="px-2 py-1 text-[11px] font-semibold text-[#486581]">{t('navTeachers')}</div>
+          {searchResults.teachers.map((tc: any) => (
+            <button
+              key={tc.id}
+              type="button"
+              onClick={() => {
+                onNavigate('teachers', { teacherId: tc.id });
+                setSearchQuery('');
+                setSearchResults(null);
+                setMobileSearchOpen(false);
+              }}
+              className="w-full flex items-center justify-between rounded px-2.5 py-2 text-start text-xs hover:bg-[#F4F7FA]"
+            >
+              <span className="font-medium text-[#0F1F38] truncate">{pick(tc.full_name, tc.full_name_ur)}</span>
+              <div className="flex items-center gap-2 shrink-0">
+                {tc.phone && <span className="font-mono-code text-[11px] text-[#5A6D65]" dir="ltr">{formatPakistaniMobile(tc.phone)}</span>}
+                <span className="font-mono-code text-[#057A4B]">{tc.teacher_code}</span>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-[#F4F7FA] flex">
       {sidebarOpen && (
@@ -173,7 +262,7 @@ export const Layout: React.FC<LayoutProps> = ({ activeSection, onNavigate, onOpe
       {/* Navy & Emerald Institutional Sidebar */}
       <aside
         className={`no-print fixed inset-y-0 z-40 shrink-0 bg-[#0B2545] text-white flex flex-col transition-all duration-200 lg:static lg:translate-x-0 ${
-          sidebarCollapsed ? 'w-[272px] lg:w-[74px]' : 'w-[272px]'
+          sidebarCollapsed ? 'w-[285px] sm:w-[320px] max-w-[85vw] lg:w-[74px]' : 'w-[285px] sm:w-[320px] max-w-[85vw] lg:w-[272px]'
         } ${
           lang === 'ur'
             ? sidebarOpen
@@ -184,7 +273,7 @@ export const Layout: React.FC<LayoutProps> = ({ activeSection, onNavigate, onOpe
               : 'left-0 -translate-x-full lg:translate-x-0'
         }`}
       >
-        <div className={`flex items-center ${sidebarCollapsed ? 'justify-center p-3' : 'justify-between px-4 py-3.5'} border-b border-white/10`}>
+        <div className={`flex items-center justify-between px-4 py-3.5 ${sidebarCollapsed ? 'lg:justify-center lg:p-3' : ''} border-b border-white/10`}>
           <button
             type="button"
             onClick={() => {
@@ -200,43 +289,37 @@ export const Layout: React.FC<LayoutProps> = ({ activeSection, onNavigate, onOpe
               referrerPolicy="no-referrer"
               className="h-10 w-10 shrink-0 rounded-full bg-white object-contain p-0.5 border border-white/30 group-hover:scale-105 transition-transform"
             />
-            {!sidebarCollapsed && (
-              <div className="min-w-0">
-                <div className="text-sm font-bold text-white truncate group-hover:text-[#34D399] transition-colors">{t('brandName')}</div>
-                <div className="text-[11px] text-sky-200/90 truncate">{t('brandSub')}</div>
-              </div>
-            )}
-          </button>
-          {!sidebarCollapsed && (
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={toggleSidebarCollapsed}
-                className="hidden lg:flex p-1.5 text-sky-200 hover:text-white rounded hover:bg-white/10 transition-colors"
-                title={lang === 'ur' ? 'سائیڈ بار سمیٹیں' : 'Collapse Sidebar'}
-              >
-                <PanelLeftClose className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setSidebarOpen(false)}
-                className="lg:hidden p-1.5 text-sky-100 hover:text-white"
-                aria-label="Close navigation"
-              >
-                <X className="h-5 w-5" />
-              </button>
+            <div className={`min-w-0 ${sidebarCollapsed ? 'lg:hidden' : 'block'}`}>
+              <div className="text-sm font-bold text-white truncate group-hover:text-[#34D399] transition-colors">{t('brandName')}</div>
+              <div className="text-[11px] text-sky-200/90 truncate">{t('brandSub')}</div>
             </div>
-          )}
+          </button>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={toggleSidebarCollapsed}
+              className={`hidden ${sidebarCollapsed ? 'lg:hidden' : 'lg:flex'} p-1.5 text-sky-200 hover:text-white rounded hover:bg-white/10 transition-colors`}
+              title={lang === 'ur' ? 'سائیڈ بار سمیٹیں' : 'Collapse Sidebar'}
+            >
+              <PanelLeftClose className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(false)}
+              className="lg:hidden p-1.5 text-sky-100 hover:text-white rounded hover:bg-white/10"
+              aria-label="Close navigation"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
-        <nav className="flex-1 overflow-y-auto px-2 lg:px-3 py-4 space-y-5">
+        <nav className="flex-1 overflow-y-auto px-3 lg:px-3 py-4 space-y-5">
           {/* Part 2: Dar-ul-Ifta */}
           <div>
-            {!sidebarCollapsed && (
-              <div className="px-3 pb-1.5 text-[11px] text-[#34D399] font-medium">
-                {t('moduleDarulIfta')}
-              </div>
-            )}
+            <div className={`px-3 pb-1.5 text-[11px] text-[#34D399] font-medium ${sidebarCollapsed ? 'lg:hidden' : 'block'}`}>
+              {t('moduleDarulIfta')}
+            </div>
             <div className="space-y-1">
               {fatwaNav.map((item) => {
                 const isActive = activeSection === item.id;
@@ -250,7 +333,7 @@ export const Layout: React.FC<LayoutProps> = ({ activeSection, onNavigate, onOpe
                       setSidebarOpen(false);
                     }}
                     className={`w-full flex items-center ${
-                      sidebarCollapsed ? 'justify-center px-2' : 'gap-3 px-3.5'
+                      sidebarCollapsed ? 'gap-3 px-3.5 lg:justify-center lg:px-2' : 'gap-3 px-3.5'
                     } rounded-md py-2.5 text-xs transition-colors whitespace-nowrap ${
                       isActive
                         ? 'bg-[#057A4B] text-white shadow-sm'
@@ -258,7 +341,7 @@ export const Layout: React.FC<LayoutProps> = ({ activeSection, onNavigate, onOpe
                     }`}
                   >
                     {item.icon}
-                    {!sidebarCollapsed && <span className="truncate">{item.label}</span>}
+                    <span className={`truncate ${sidebarCollapsed ? 'lg:hidden' : 'inline'}`}>{item.label}</span>
                   </button>
                 );
               })}
@@ -267,11 +350,9 @@ export const Layout: React.FC<LayoutProps> = ({ activeSection, onNavigate, onOpe
 
           {/* Part 1: Academic */}
           <div>
-            {!sidebarCollapsed && (
-              <div className="px-3 pb-1.5 text-[11px] text-sky-300 font-medium">
-                {t('moduleAcademic')}
-              </div>
-            )}
+            <div className={`px-3 pb-1.5 text-[11px] text-sky-300 font-medium ${sidebarCollapsed ? 'lg:hidden' : 'block'}`}>
+              {t('moduleAcademic')}
+            </div>
             <div className="space-y-1">
               {academicNav.map((item) => {
                 const isActive = activeSection === item.id;
@@ -285,7 +366,7 @@ export const Layout: React.FC<LayoutProps> = ({ activeSection, onNavigate, onOpe
                       setSidebarOpen(false);
                     }}
                     className={`w-full flex items-center ${
-                      sidebarCollapsed ? 'justify-center px-2' : 'gap-3 px-3.5'
+                      sidebarCollapsed ? 'gap-3 px-3.5 lg:justify-center lg:px-2' : 'gap-3 px-3.5'
                     } rounded-md py-2.5 text-xs transition-colors whitespace-nowrap ${
                       isActive
                         ? 'bg-[#057A4B] text-white shadow-sm'
@@ -293,22 +374,20 @@ export const Layout: React.FC<LayoutProps> = ({ activeSection, onNavigate, onOpe
                     }`}
                   >
                     {item.icon}
-                    {!sidebarCollapsed && <span className="truncate">{item.label}</span>}
+                    <span className={`truncate ${sidebarCollapsed ? 'lg:hidden' : 'inline'}`}>{item.label}</span>
                   </button>
                 );
               })}
             </div>
           </div>
 
-          {/* Part 3 / Master Admin Control: MOVED TO BOTTOM NEAR REPORTS */}
+          {/* Part 3 / Master Admin Control */}
           {user?.role === 'admin' && (
             <div className="pt-2 border-t border-white/10">
-              {!sidebarCollapsed && (
-                <div className="px-3 pb-1.5 text-[11px] text-amber-300 font-semibold flex items-center gap-1.5">
-                  <ShieldCheck className="h-3.5 w-3.5 text-amber-300" />
-                  <span>{t('moduleMasterAdmin')}</span>
-                </div>
-              )}
+              <div className={`px-3 pb-1.5 text-[11px] text-amber-300 font-semibold flex items-center gap-1.5 ${sidebarCollapsed ? 'lg:hidden' : 'flex'}`}>
+                <ShieldCheck className="h-3.5 w-3.5 text-amber-300" />
+                <span>{t('moduleMasterAdmin')}</span>
+              </div>
               <div className="space-y-1">
                 {adminNav.map((item) => {
                   const isActive = activeSection === item.id;
@@ -322,7 +401,7 @@ export const Layout: React.FC<LayoutProps> = ({ activeSection, onNavigate, onOpe
                         setSidebarOpen(false);
                       }}
                       className={`w-full flex items-center ${
-                        sidebarCollapsed ? 'justify-center px-2' : 'gap-3 px-3.5'
+                        sidebarCollapsed ? 'gap-3 px-3.5 lg:justify-center lg:px-2' : 'gap-3 px-3.5'
                       } rounded-md py-2.5 text-xs transition-colors whitespace-nowrap ${
                         isActive
                           ? 'bg-[#057A4B] text-white shadow-sm ring-1 ring-amber-300/40'
@@ -330,7 +409,7 @@ export const Layout: React.FC<LayoutProps> = ({ activeSection, onNavigate, onOpe
                       }`}
                     >
                       {item.icon}
-                      {!sidebarCollapsed && <span className="truncate">{item.label}</span>}
+                      <span className={`truncate ${sidebarCollapsed ? 'lg:hidden' : 'inline'}`}>{item.label}</span>
                     </button>
                   );
                 })}
@@ -339,24 +418,25 @@ export const Layout: React.FC<LayoutProps> = ({ activeSection, onNavigate, onOpe
           )}
         </nav>
 
-        <div className={`p-3 border-t border-white/10 bg-[#081C36] space-y-2 ${sidebarCollapsed ? 'text-center' : ''}`}>
-          {!sidebarCollapsed && (
-            <>
-              <div className="text-xs font-medium text-white truncate">{user ? (lang === 'ur' ? user.nameUr : user.nameEn) : ''}</div>
-              <div className="text-[11px] text-sky-200/85 truncate">{user ? roleLabels[user.role] : ''}</div>
-            </>
-          )}
+        <div className={`p-3 border-t border-white/10 bg-[#081C36] space-y-2 ${sidebarCollapsed ? 'text-start lg:text-center' : ''}`}>
+          <div className={sidebarCollapsed ? 'lg:hidden' : 'block'}>
+            <div className="text-xs font-medium text-white truncate">{user ? (lang === 'ur' ? user.nameUr : user.nameEn) : ''}</div>
+            <div className="text-[11px] text-sky-200/85 truncate">{user ? roleLabels[user.role] : ''}</div>
+          </div>
           {onOpenPublicPortal && (
             <button
               type="button"
-              onClick={onOpenPublicPortal}
+              onClick={() => {
+                onOpenPublicPortal();
+                setSidebarOpen(false);
+              }}
               title={t('viewPublicPortal')}
               className={`w-full flex items-center justify-center gap-2 rounded-md bg-[#0284C7]/25 border border-[#0284C7]/50 py-1.5 text-xs font-medium text-sky-100 hover:bg-[#0284C7]/40 transition-colors whitespace-nowrap ${
-                sidebarCollapsed ? 'px-1' : 'px-3'
+                sidebarCollapsed ? 'px-3 lg:px-1' : 'px-3'
               }`}
             >
               <Globe className="h-3.5 w-3.5 shrink-0" />
-              {!sidebarCollapsed && <span>{t('viewPublicPortal')}</span>}
+              <span className={sidebarCollapsed ? 'lg:hidden' : 'inline'}>{t('viewPublicPortal')}</span>
             </button>
           )}
           <button
@@ -364,34 +444,34 @@ export const Layout: React.FC<LayoutProps> = ({ activeSection, onNavigate, onOpe
             onClick={toggleLang}
             title={t('switchLang')}
             className={`w-full flex items-center justify-center gap-2 rounded-md border border-white/10 py-1.5 text-xs font-medium text-sky-100 hover:bg-white/10 transition-colors whitespace-nowrap ${
-              sidebarCollapsed ? 'px-1' : 'px-3'
+              sidebarCollapsed ? 'px-3 lg:px-1' : 'px-3'
             }`}
           >
             <Globe className="h-3.5 w-3.5 shrink-0 text-[#34D399]" />
-            {!sidebarCollapsed && <span>{lang === 'ur' ? 'English' : 'اردو'}</span>}
+            <span className={sidebarCollapsed ? 'lg:hidden' : 'inline'}>{lang === 'ur' ? 'English' : 'اردو'}</span>
           </button>
           <button
             type="button"
             onClick={signOut}
             title={t('signOut')}
             className={`w-full flex items-center justify-center gap-2 rounded-md border border-white/20 py-1.5 text-xs font-medium text-white hover:bg-white/10 transition-colors whitespace-nowrap ${
-              sidebarCollapsed ? 'px-1' : 'px-3'
+              sidebarCollapsed ? 'px-3 lg:px-1' : 'px-3'
             }`}
           >
             <LogOut className="h-3.5 w-3.5 shrink-0" />
-            {!sidebarCollapsed && <span>{t('signOut')}</span>}
+            <span className={sidebarCollapsed ? 'lg:hidden' : 'inline'}>{t('signOut')}</span>
           </button>
         </div>
       </aside>
 
       {/* Main Content */}
       <div className="flex-1 min-w-0 flex flex-col">
-        <header className="no-print sticky top-0 z-20 bg-white border-b border-[#D9E2EC] px-3 lg:px-5 py-2 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5 min-w-0">
+        <header className="no-print sticky top-0 z-20 bg-white border-b border-[#D9E2EC] px-3 sm:px-4 lg:px-5 py-2 flex items-center justify-between gap-2 sm:gap-3">
+          <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
             <button
               type="button"
               onClick={() => setSidebarOpen(true)}
-              className="lg:hidden rounded-md border border-[#D9E2EC] p-1.5 text-[#0B2545] hover:bg-[#F4F7FA]"
+              className="lg:hidden rounded-md border border-[#D9E2EC] p-1.5 text-[#0B2545] hover:bg-[#F4F7FA] shrink-0"
               aria-label="Open navigation"
             >
               <Menu className="h-4 w-4" />
@@ -405,7 +485,7 @@ export const Layout: React.FC<LayoutProps> = ({ activeSection, onNavigate, onOpe
             >
               {sidebarCollapsed ? <PanelLeftOpen className="h-4 w-4 text-[#057A4B]" /> : <PanelLeftClose className="h-4 w-4 text-[#0B2545]" />}
             </button>
-            <div className="flex items-center gap-2 text-sm">
+            <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm min-w-0">
               <button
                 type="button"
                 onClick={() => onNavigate(homeSection)}
@@ -417,13 +497,13 @@ export const Layout: React.FC<LayoutProps> = ({ activeSection, onNavigate, onOpe
               {activeNav && activeNav.id !== homeSection && (
                 <>
                   <span className="text-[#9FB3C8] hidden sm:inline">/</span>
-                  <h1 className="font-semibold text-[#057A4B] truncate">{activeNav.label}</h1>
+                  <h1 className="font-semibold text-[#057A4B] truncate max-w-[130px] xs:max-w-[180px] sm:max-w-none">{activeNav.label}</h1>
                 </>
               )}
             </div>
           </div>
 
-          {/* Global Search across Fatwas, Students, Teachers, Books */}
+          {/* Global Search across Fatwas, Students, Teachers, Books (Desktop) */}
           <div ref={searchRef} className="relative flex-1 max-w-md hidden md:block">
             <div className="relative">
               <Search className={`h-4 w-4 text-[#486581] absolute top-1/2 -translate-y-1/2 ${lang === 'ur' ? 'right-3' : 'left-3'}`} />
@@ -439,97 +519,32 @@ export const Layout: React.FC<LayoutProps> = ({ activeSection, onNavigate, onOpe
             </div>
 
             {searchQuery.trim() && searchResults && (
-              <div className="absolute left-0 right-0 mt-1.5 rounded-md border border-[#D9E2EC] bg-white shadow-lg z-50 max-h-96 overflow-y-auto divide-y divide-[#EDF2F7]">
-                {searching && <div className="p-3 text-xs text-[#486581]">{t('loading')}</div>}
-                {!searching &&
-                  (searchResults.fatwas?.length || 0) === 0 &&
-                  (searchResults.students?.length || 0) === 0 &&
-                  (searchResults.teachers?.length || 0) === 0 && (
-                    <div className="p-4 text-xs text-[#486581] text-center">{t('noSearchResults')}</div>
-                  )}
-
-                {(searchResults.fatwas?.length || 0) > 0 && (
-                  <div className="p-2">
-                    <div className="px-2 py-1 text-[11px] font-semibold text-[#0B2545]">{t('navFatwaQuestions')}</div>
-                    {searchResults.fatwas.map((fq: any) => (
-                      <button
-                        key={fq.id}
-                        type="button"
-                        onClick={() => {
-                          onNavigate('fatwa_questions', { fatwaId: fq.id });
-                          setSearchQuery('');
-                          setSearchResults(null);
-                        }}
-                        className="w-full flex items-center justify-between gap-2 rounded px-2.5 py-2 text-start text-xs hover:bg-[#F4F7FA]"
-                      >
-                        <span className="font-medium text-[#0F1F38]">{pick(fq.subject_title, fq.subject_title_ur)}</span>
-                        <span className="font-mono-code text-[#057A4B] shrink-0">{fq.issued_fatwa_number || fq.fatwa_code}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                {(searchResults.students?.length || 0) > 0 && (
-                  <div className="p-2">
-                    <div className="px-2 py-1 text-[11px] font-semibold text-[#486581]">{t('navStudents')}</div>
-                    {searchResults.students.map((st: any) => (
-                      <button
-                        key={st.id}
-                        type="button"
-                        onClick={() => {
-                          onNavigate('students', { studentId: st.id });
-                          setSearchQuery('');
-                          setSearchResults(null);
-                        }}
-                        className="w-full flex items-center justify-between rounded px-2.5 py-2 text-start text-xs hover:bg-[#F4F7FA]"
-                      >
-                        <span className="font-medium text-[#0F1F38]">{pick(st.full_name, st.full_name_ur)}</span>
-                        <div className="flex items-center gap-2">
-                          {st.phone && <span className="font-mono-code text-[11px] text-[#5A6D65]" dir="ltr">{formatPakistaniMobile(st.phone)}</span>}
-                          <span className="font-mono-code text-[#0284C7]">{st.student_code}</span>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                {(searchResults.teachers?.length || 0) > 0 && (
-                  <div className="p-2">
-                    <div className="px-2 py-1 text-[11px] font-semibold text-[#486581]">{t('navTeachers')}</div>
-                    {searchResults.teachers.map((tc: any) => (
-                      <button
-                        key={tc.id}
-                        type="button"
-                        onClick={() => {
-                          onNavigate('teachers', { teacherId: tc.id });
-                          setSearchQuery('');
-                          setSearchResults(null);
-                        }}
-                        className="w-full flex items-center justify-between rounded px-2.5 py-2 text-start text-xs hover:bg-[#F4F7FA]"
-                      >
-                        <span className="font-medium text-[#0F1F38]">{pick(tc.full_name, tc.full_name_ur)}</span>
-                        <div className="flex items-center gap-2">
-                          {tc.phone && <span className="font-mono-code text-[11px] text-[#5A6D65]" dir="ltr">{formatPakistaniMobile(tc.phone)}</span>}
-                          <span className="font-mono-code text-[#057A4B]">{tc.teacher_code}</span>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
+              <div className="absolute left-0 right-0 mt-1.5">
+                {renderSearchResults()}
               </div>
             )}
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {/* Mobile Search Toggle Button */}
+            <button
+              type="button"
+              onClick={() => setMobileSearchOpen((o) => !o)}
+              className="md:hidden p-1.5 rounded-md border border-[#D9E2EC] text-[#0B2545] hover:bg-[#F4F7FA] transition-colors shrink-0"
+              aria-label="Toggle search"
+            >
+              {mobileSearchOpen ? <X className="h-4 w-4" /> : <Search className="h-4 w-4 text-[#057A4B]" />}
+            </button>
+
             {user && (
               <div className="relative">
                 <button
                   type="button"
                   onClick={() => setRoleMenuOpen((o) => !o)}
-                  className="inline-flex items-center gap-1.5 rounded-md bg-[#0B2545] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#103563] transition-colors whitespace-nowrap shrink-0"
+                  className="inline-flex items-center gap-1 sm:gap-1.5 rounded-md bg-[#0B2545] px-2 sm:px-3 py-1.5 text-[11px] sm:text-xs font-medium text-white hover:bg-[#103563] transition-colors whitespace-nowrap shrink-0 max-w-[140px] sm:max-w-none"
                 >
-                  <span>{roleLabels[user.role]}</span>
-                  <ChevronDown className="h-3.5 w-3.5" />
+                  <span className="truncate">{roleLabels[user.role]}</span>
+                  <ChevronDown className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0" />
                 </button>
                 {roleMenuOpen && (
                   <div className={`absolute mt-1.5 w-60 rounded-md border border-[#D9E2EC] bg-white shadow-lg z-50 py-1 ${lang === 'ur' ? 'left-0' : 'right-0'}`}>
@@ -556,7 +571,31 @@ export const Layout: React.FC<LayoutProps> = ({ activeSection, onNavigate, onOpe
           </div>
         </header>
 
-        <main className="flex-1 p-4 lg:p-6 max-w-[1400px] w-full mx-auto">
+        {/* Mobile Expandable Search Bar */}
+        {mobileSearchOpen && (
+          <div ref={mobileSearchRef} className="no-print md:hidden border-b border-[#D9E2EC] bg-white px-3 py-2.5 space-y-2">
+            <div className="relative">
+              <Search className={`h-4 w-4 text-[#486581] absolute top-1/2 -translate-y-1/2 ${lang === 'ur' ? 'right-3' : 'left-3'}`} />
+              <input
+                type="text"
+                autoFocus
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={t('searchPlaceholder')}
+                className={`w-full rounded-md border border-[#D9E2EC] bg-[#F4F7FA] py-1.5 text-xs text-[#0F1F38] placeholder-[#627D98] focus:border-[#057A4B] focus:bg-white focus:outline-none ${
+                  lang === 'ur' ? 'pr-9 pl-3' : 'pl-9 pr-3'
+                }`}
+              />
+            </div>
+            {searchQuery.trim() && searchResults && (
+              <div className="mt-1">
+                {renderSearchResults()}
+              </div>
+            )}
+          </div>
+        )}
+
+        <main className="flex-1 min-w-0 p-3 sm:p-4 lg:p-6 max-w-[1400px] w-full mx-auto">
           {children}
         </main>
       </div>

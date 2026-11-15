@@ -43,44 +43,44 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onOpenPublicPortal, on
   };
 
   return (
-    <div className="min-h-screen bg-[#F4F7FA] flex items-center justify-center p-4 lg:p-8">
-      <div className="w-full max-w-5xl rounded-lg border border-[#D9E2EC] bg-white grid grid-cols-1 lg:grid-cols-2 items-stretch">
+    <div className="min-h-screen bg-[#F4F7FA] flex items-center justify-center p-3 sm:p-4 lg:p-8">
+      <div className="w-full max-w-5xl rounded-lg border border-[#D9E2EC] bg-white grid grid-cols-1 lg:grid-cols-2 items-stretch shadow-sm">
         {/* Institutional Branding Panel (Logo Only, No Cover Photo) */}
-        <div className="relative min-h-[260px] lg:min-h-[540px] bg-gradient-to-br from-[#0B2545] via-[#0F3A68] to-[#057A4B] p-8 lg:p-10 flex flex-col justify-between text-white rounded-t-lg lg:rounded-t-none lg:rounded-s-lg">
-          <div className="flex items-center gap-4">
+        <div className="relative bg-gradient-to-br from-[#0B2545] via-[#0F3A68] to-[#057A4B] p-5 sm:p-8 lg:p-10 flex flex-col justify-between text-white rounded-t-lg lg:rounded-t-none lg:rounded-s-lg min-h-0 lg:min-h-[540px]">
+          <div className="flex items-center gap-3 sm:gap-4">
             <img
               src="/assets/aistudio/naafay_logo_8857642c.jpg"
               alt="Naafay Emblem"
               referrerPolicy="no-referrer"
-              className="h-16 w-16 shrink-0 rounded-full border-2 border-white/40 bg-white object-contain p-0.5"
+              className="h-12 w-12 sm:h-16 sm:w-16 shrink-0 rounded-full border-2 border-white/40 bg-white object-contain p-0.5"
             />
             <div>
-              <h2 className="text-xl font-bold text-white">{t('brandName')}</h2>
+              <h2 className="text-lg sm:text-xl font-bold text-white">{t('brandName')}</h2>
               <p className="text-xs text-sky-100/95">{t('brandSub')}</p>
             </div>
           </div>
 
-          <div className="space-y-4 my-6">
+          <div className="space-y-3 sm:space-y-4 my-4 sm:my-6">
             <div className="text-xs font-medium text-[#6EE7B7]">
               {lang === 'ur' ? 'مربوط علمی، تعلیمی و افتاء سافٹ ویئر' : 'Unified Academic, Fatwa & Public Portal Platform'}
             </div>
-            <p className="text-sm text-sky-50/95 max-w-md">
+            <p className="text-xs sm:text-sm text-sky-50/95 max-w-md">
               {lang === 'ur'
                 ? 'نافع دارالافتاء و تخصص فی الفقہ کا مربوط تعلیمی، افتاء اور ایڈمن پورٹل: طلبہ، سہ وقتی حاضری، روزانہ مطالعہ، استفتاء، تحقیق، منظوری اور پبلک پورٹل کنٹرول۔'
                 : 'Integrated Academic, Dar-ul-Ifta & Master Admin platform for Takhassus fil Fiqh: full management across all three modules.'}
             </p>
           </div>
 
-          <div className="pt-4 border-t border-white/15 text-xs text-sky-100/80 flex items-center justify-between gap-2">
+          <div className="pt-3 sm:pt-4 border-t border-white/15 text-xs text-sky-100/80 flex items-center justify-between gap-2">
             <span>{lang === 'ur' ? 'ناظم: مفتی وارث نصیب' : 'Nazim: Mufti Waris Naseeb'}</span>
             <span className="font-mono-code">1447-1448 AH</span>
           </div>
         </div>
 
         {/* Login Tabs */}
-        <div className="p-6 lg:p-10 flex flex-col justify-between">
+        <div className="p-4 sm:p-6 lg:p-10 flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between gap-2 pb-5 border-b border-[#E2E8F0]">
+            <div className="flex items-center justify-between gap-2 pb-4 sm:pb-5 border-b border-[#E2E8F0] flex-wrap">
               <span className="text-sm font-semibold text-[#0B2545]">{t('loginTitle')}</span>
               <div className="flex items-center gap-2">
                 {onOpenPublicPortal && (

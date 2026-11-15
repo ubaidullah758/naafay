@@ -210,9 +210,9 @@ export const FatwaQuestionsView: React.FC<FatwaQuestionsViewProps> = ({ initialF
   return (
     <div className="space-y-5">
       {/* Header Toolbar */}
-      <div className="rounded-lg border border-[#D9E2EC] bg-white p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="rounded-lg border border-[#D9E2EC] bg-white p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-lg font-bold text-[#0B2545]">{t('navFatwaQuestions')}</h2>
+          <h2 className="text-base sm:text-lg font-bold text-[#0B2545]">{t('navFatwaQuestions')}</h2>
           <p className="text-xs text-[#486581] mt-0.5">
             {lang === 'ur'
               ? 'استفتاء کا اندراج، تفویض، تحقیق و تخریج، مسودہ نویسی، مفتیِ اعظم کا جائزہ، اور حتمی اجراء'
@@ -220,12 +220,12 @@ export const FatwaQuestionsView: React.FC<FatwaQuestionsViewProps> = ({ initialF
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 shrink-0 w-full sm:w-auto">
           {canManageCategories && (
             <button
               type="button"
               onClick={() => setCatModalOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-md border border-[#D9E2EC] bg-white px-3.5 py-2 text-xs font-medium text-[#0B2545] hover:bg-[#F4F7FA] whitespace-nowrap"
+              className="flex-1 sm:flex-none justify-center inline-flex items-center gap-1.5 rounded-md border border-[#D9E2EC] bg-white px-3.5 py-2 text-xs font-medium text-[#0B2545] hover:bg-[#F4F7FA] whitespace-nowrap"
             >
               <FolderCog className="h-4 w-4 text-[#0284C7]" />
               <span>{t('manageCategories')}</span>
@@ -235,7 +235,7 @@ export const FatwaQuestionsView: React.FC<FatwaQuestionsViewProps> = ({ initialF
             <button
               type="button"
               onClick={() => setRegModalOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-md bg-[#057A4B] px-4 py-2 text-xs font-medium text-white hover:bg-[#04643D] whitespace-nowrap"
+              className="flex-1 sm:flex-none justify-center inline-flex items-center gap-1.5 rounded-md bg-[#057A4B] px-4 py-2 text-xs font-medium text-white hover:bg-[#04643D] whitespace-nowrap"
             >
               <Plus className="h-4 w-4" />
               <span>{t('registerQuestion')}</span>

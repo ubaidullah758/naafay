@@ -80,6 +80,27 @@ html[lang="ur"] :is(th, td):not(.font-mono-code) {
   vertical-align: middle;
 }
 
+@media (max-width: 640px) {
+  html[lang="ur"] select:not(.font-mono-code) {
+    min-height: 2.65rem;
+    padding-top: 0.3rem;
+    padding-bottom: 0.3rem;
+  }
+  html[lang="ur"] input:not([type="checkbox"]):not([type="radio"]):not(.font-mono-code) {
+    min-height: 2.5rem;
+    padding-top: 0.25rem;
+    padding-bottom: 0.25rem;
+  }
+  html[lang="ur"] button:not(.font-mono-code):not(.font-poppins) {
+    line-height: 2.0;
+    padding-block: 0.25rem;
+  }
+}
+
+.overflow-x-auto {
+  -webkit-overflow-scrolling: touch;
+}
+
 .font-urdu {
   font-family: 'Noto Nastaliq Urdu', 'Jameel Noori Nastaleeq', serif;
   line-height: 2.3;

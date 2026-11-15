@@ -104,13 +104,13 @@ export const FatwaDashboardView: React.FC<FatwaDashboardViewProps> = ({ onNaviga
   return (
     <div className="space-y-6">
       {/* Institutional Dar-ul-Ifta Header Banner */}
-      <div className="rounded-lg border border-[#D9E2EC] bg-white p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
+      <div className="rounded-lg border border-[#D9E2EC] bg-white p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3 sm:gap-4">
           <img
             src="/assets/aistudio/naafay_logo_8857642c.jpg"
             alt="Naafay Darul Ifta"
             referrerPolicy="no-referrer"
-            className="h-12 w-12 rounded-full border border-[#D9E2EC] object-contain p-0.5 bg-white shrink-0"
+            className="h-10 w-10 sm:h-12 sm:w-12 rounded-full border border-[#D9E2EC] object-contain p-0.5 bg-white shrink-0"
           />
           <div>
             <div className="flex flex-wrap items-center gap-2 text-xs text-[#486581]">
@@ -121,18 +121,18 @@ export const FatwaDashboardView: React.FC<FatwaDashboardViewProps> = ({ onNaviga
                 {lang === 'ur' ? `${questions.length} استفتاءات زیرِ نظر` : `${questions.length} matching records`}
               </span>
             </div>
-            <h2 className="mt-1 text-lg font-bold text-[#0B2545]">
+            <h2 className="mt-1 text-base sm:text-lg font-bold text-[#0B2545]">
               {lang === 'ur' ? 'دارالافتاء نافع — فتویٰ ورک فلو ڈیش بورڈ' : 'Naafay Dar-ul-Ifta — Fatwa Workflow Dashboard'}
             </h2>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 shrink-0 w-full sm:w-auto">
           {canRegisterFatwa && (
             <button
               type="button"
               onClick={() => onNavigate('fatwa_questions')}
-              className="inline-flex items-center gap-2 rounded-md bg-[#057A4B] px-4 py-2 text-xs font-medium text-white hover:bg-[#04643D] transition-colors whitespace-nowrap"
+              className="flex-1 sm:flex-none justify-center inline-flex items-center gap-2 rounded-md bg-[#057A4B] px-4 py-2 text-xs font-medium text-white hover:bg-[#04643D] transition-colors whitespace-nowrap"
             >
               <Plus className="h-4 w-4 shrink-0" />
               <span>{t('registerQuestion')}</span>
@@ -141,7 +141,7 @@ export const FatwaDashboardView: React.FC<FatwaDashboardViewProps> = ({ onNaviga
           <button
             type="button"
             onClick={() => onNavigate('fatwa_archive')}
-            className="inline-flex items-center gap-2 rounded-md border border-[#D9E2EC] bg-white px-4 py-2 text-xs font-medium text-[#0B2545] hover:bg-[#F4F7FA] transition-colors whitespace-nowrap"
+            className="flex-1 sm:flex-none justify-center inline-flex items-center gap-2 rounded-md border border-[#D9E2EC] bg-white px-4 py-2 text-xs font-medium text-[#0B2545] hover:bg-[#F4F7FA] transition-colors whitespace-nowrap"
           >
             <span>{t('navFatwaArchive')}</span>
             <ArrowUpRight className="h-3.5 w-3.5 shrink-0" />

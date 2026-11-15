@@ -1964,15 +1964,15 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onNavigate }) =>
 };
 
 const Modal: React.FC<{ title: string; onClose: () => void; children: React.ReactNode }> = ({ title, onClose, children }) => (
-  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-3 sm:p-4 overflow-y-auto">
     <div className="w-full max-w-xl rounded-lg border border-[#D9E2EC] bg-white shadow-xl max-h-[90vh] overflow-y-auto">
-      <div className="flex items-center justify-between border-b border-[#EDF2F7] px-5 py-3.5">
+      <div className="flex items-center justify-between border-b border-[#EDF2F7] px-4 sm:px-5 py-3.5">
         <h3 className="text-sm font-bold text-[#0B2545]">{title}</h3>
         <button type="button" onClick={onClose} className="p-1 text-[#486581] hover:text-[#0B2545]">
           <X className="h-4 w-4" />
         </button>
       </div>
-      <div className="p-5">{children}</div>
+      <div className="p-4 sm:p-5">{children}</div>
     </div>
   </div>
 );

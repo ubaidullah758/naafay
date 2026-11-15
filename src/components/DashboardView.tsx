@@ -80,7 +80,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
   return (
     <div className="space-y-6">
       {/* Institutional Welcome Banner */}
-      <div className="rounded-lg border border-[#DCE4E0] bg-white p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="rounded-lg border border-[#DCE4E0] bg-white p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="text-xs text-[#5A6D65] tabular-nums">
             <span>{data.today}</span>
@@ -93,18 +93,18 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
               : `Welcome, ${user?.nameEn || ''}`}
           </h2>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0 flex-wrap sm:flex-nowrap">
           <button
             type="button"
             onClick={() => onNavigate('attendance')}
-            className="rounded-md bg-[#065F46] px-4 py-2 text-xs font-medium text-white hover:bg-[#064E3B] transition-colors whitespace-nowrap"
+            className="flex-1 sm:flex-none text-center rounded-md bg-[#065F46] px-4 py-2 text-xs font-medium text-white hover:bg-[#064E3B] transition-colors whitespace-nowrap"
           >
             {t('navAttendance')}
           </button>
           <button
             type="button"
             onClick={() => onNavigate('students')}
-            className="rounded-md border border-[#DCE4E0] bg-white px-4 py-2 text-xs font-medium text-[#111C18] hover:bg-[#F6F8F7] transition-colors whitespace-nowrap"
+            className="flex-1 sm:flex-none text-center rounded-md border border-[#DCE4E0] bg-white px-4 py-2 text-xs font-medium text-[#111C18] hover:bg-[#F6F8F7] transition-colors whitespace-nowrap"
           >
             {t('navStudents')}
           </button>
@@ -150,7 +150,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
           </button>
         </div>
         <div className="overflow-x-auto">
-          <div className="grid grid-cols-3 min-w-[700px] divide-x rtl:divide-x-reverse divide-[#E5ECE8]">
+          <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x rtl:md:divide-x-reverse divide-[#E5ECE8]">
             {data.sessionBreakdown.map((ses: any) => (
               <div key={ses.id} className="p-4 sm:p-5">
                 <div className="flex items-center justify-between gap-2">

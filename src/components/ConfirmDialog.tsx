@@ -35,18 +35,18 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
           <p className="mt-2 text-sm text-[#4A5D55]">{message}</p>
         </div>
       </div>
-      <div className="mt-6 flex items-center justify-end gap-3">
+      <div className="mt-6 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:gap-3">
         <button
           type="button"
           onClick={onCancel}
-          className="whitespace-nowrap shrink-0 rounded-md border border-[#DCE4E0] bg-white px-4 py-2 text-sm font-medium text-[#374841] hover:bg-[#F6F8F7] transition-colors"
+          className="w-full sm:w-auto text-center whitespace-nowrap shrink-0 rounded-md border border-[#DCE4E0] bg-white px-4 py-2 text-sm font-medium text-[#374841] hover:bg-[#F6F8F7] transition-colors"
         >
           {t('cancel')}
         </button>
         <button
           type="button"
           onClick={onConfirm}
-          className={`whitespace-nowrap shrink-0 rounded-md px-4 py-2 text-sm font-medium text-white transition-colors ${
+          className={`w-full sm:w-auto text-center whitespace-nowrap shrink-0 rounded-md px-4 py-2 text-sm font-medium text-white transition-colors ${
             danger ? 'bg-red-700 hover:bg-red-800' : 'bg-[#065F46] hover:bg-[#064E3B]'
           }`}
         >

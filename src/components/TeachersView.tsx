@@ -548,7 +548,7 @@ export const TeachersView: React.FC<TeachersViewProps> = ({ initialTeacherId }) 
         return (
           <div className="space-y-4">
             <div className="rounded-lg border border-[#DCE4E0] bg-white p-3 flex flex-wrap items-center justify-between gap-3">
-              <div className="relative flex-1 min-w-[220px] max-w-md">
+              <div className="relative w-full sm:max-w-md">
                 <Search className={`h-4 w-4 text-[#64746D] absolute top-1/2 -translate-y-1/2 ${lang === 'ur' ? 'right-3' : 'left-3'}`} />
                 <input
                   type="text"

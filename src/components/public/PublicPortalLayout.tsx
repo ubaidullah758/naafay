@@ -75,21 +75,21 @@ export const PublicPortalLayout: React.FC<PublicPortalLayoutProps> = ({
     <div className="min-h-screen flex flex-col bg-[#F4F7FA] text-[#0F1F38]">
       {/* Main Public Navigation */}
       <header className="no-print sticky top-0 z-30 bg-white border-b border-[#D9E2EC]">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
+        <div className="max-w-6xl mx-auto px-3 sm:px-6 py-2.5 sm:py-3 flex items-center justify-between gap-2 sm:gap-4">
           <button
             type="button"
             onClick={() => onNavigate({ page: 'home' })}
-            className="flex items-center gap-3 text-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#057A4B] rounded-md"
+            className="flex items-center gap-2.5 sm:gap-3 text-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#057A4B] rounded-md min-w-0"
           >
             <img
               src="/assets/aistudio/naafay_logo_8857642c.jpg"
               alt={instName}
               referrerPolicy="no-referrer"
-              className="h-11 w-11 rounded-full border border-[#D9E2EC] object-contain p-0.5 bg-white shrink-0"
+              className="h-10 w-10 sm:h-11 sm:w-11 rounded-full border border-[#D9E2EC] object-contain p-0.5 bg-white shrink-0"
             />
-            <div>
-              <div className="text-base font-bold text-[#0B2545]">{instName}</div>
-              <div className="text-[11px] text-[#057A4B] font-medium">
+            <div className="min-w-0">
+              <div className="text-sm sm:text-base font-bold text-[#0B2545] truncate">{instName}</div>
+              <div className="text-[10px] sm:text-[11px] text-[#057A4B] font-medium truncate max-w-[190px] xs:max-w-xs sm:max-w-none">
                 {lang === 'ur' ? 'آن لائن دارالافتاء و تصدیق شدہ فتاویٰ پورٹل' : 'Online Fatwa Research & Public Guidance Portal'}
               </div>
             </div>
@@ -181,13 +181,13 @@ export const PublicPortalLayout: React.FC<PublicPortalLayoutProps> = ({
       </header>
 
       {/* Main Public Content */}
-      <main className="flex-1 w-full max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+      <main className="flex-1 w-full max-w-6xl mx-auto px-3 sm:px-6 py-5 sm:py-8">
         {children}
       </main>
 
       {/* Trustworthy Institutional Footer */}
       <footer className="no-print bg-[#0B2545] text-sky-100 border-t border-white/10 mt-10">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 grid grid-cols-1 md:grid-cols-3 gap-8 text-xs">
+        <div className="max-w-6xl mx-auto px-3 sm:px-6 py-8 sm:py-10 grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8 text-xs">
           <div className="space-y-3">
             <div className="flex items-center gap-3">
               <img
