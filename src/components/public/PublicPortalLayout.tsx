@@ -117,15 +117,6 @@ export const PublicPortalLayout: React.FC<PublicPortalLayoutProps> = ({
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={toggleLang}
-              className="inline-flex items-center gap-1 rounded-md border border-[#D9E2EC] px-2 py-1 text-[11px] font-medium text-[#243B53] hover:bg-[#F4F7FA] transition-colors whitespace-nowrap shrink-0"
-              title={t('switchLang')}
-            >
-              <Globe className="h-3 w-3 text-[#057A4B]" />
-              <span>{lang === 'ur' ? 'EN' : 'اردو'}</span>
-            </button>
-            <button
-              type="button"
               onClick={() => onNavigate({ page: 'ask' })}
               className="hidden sm:inline-flex items-center gap-2 rounded-md bg-[#057A4B] px-4 py-2 text-xs font-semibold text-white hover:bg-[#04643D] transition-colors whitespace-nowrap"
             >

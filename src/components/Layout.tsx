@@ -361,6 +361,17 @@ export const Layout: React.FC<LayoutProps> = ({ activeSection, onNavigate, onOpe
           )}
           <button
             type="button"
+            onClick={toggleLang}
+            title={t('switchLang')}
+            className={`w-full flex items-center justify-center gap-2 rounded-md border border-white/10 py-1.5 text-xs font-medium text-sky-100 hover:bg-white/10 transition-colors whitespace-nowrap ${
+              sidebarCollapsed ? 'px-1' : 'px-3'
+            }`}
+          >
+            <Globe className="h-3.5 w-3.5 shrink-0 text-[#34D399]" />
+            {!sidebarCollapsed && <span>{lang === 'ur' ? 'English' : 'اردو'}</span>}
+          </button>
+          <button
+            type="button"
             onClick={signOut}
             title={t('signOut')}
             className={`w-full flex items-center justify-center gap-2 rounded-md border border-white/20 py-1.5 text-xs font-medium text-white hover:bg-white/10 transition-colors whitespace-nowrap ${
@@ -510,16 +521,6 @@ export const Layout: React.FC<LayoutProps> = ({ activeSection, onNavigate, onOpe
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={toggleLang}
-              className="inline-flex items-center gap-1 rounded-md border border-[#D9E2EC] bg-white px-2 py-1 text-[11px] font-medium text-[#0B2545] hover:bg-[#F4F7FA] transition-colors whitespace-nowrap shrink-0"
-              title={t('switchLang')}
-            >
-              <Globe className="h-3 w-3 text-[#057A4B]" />
-              <span>{lang === 'ur' ? 'EN' : 'اردو'}</span>
-            </button>
-
             {user && (
               <div className="relative">
                 <button

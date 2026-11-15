@@ -584,16 +584,6 @@ export const AttendanceView: React.FC = () => {
       {/* MARK ATTENDANCE (All 3 Sessions Horizontal Per Student) */}
       {subTab === 'mark' && (
         <div className="rounded-lg border border-[#DCE4E0] bg-white overflow-hidden">
-          <div className="px-4 py-2.5 bg-[#F6F8F7] border-b border-[#E5ECE8] text-xs text-[#4A5D55] flex flex-wrap items-center gap-x-4 gap-y-1">
-            <span>
-              {lang === 'ur'
-                ? 'ہر طالب علم کے ہر سیشن پر «حاضری» پر کلک کریں، پھر حیثیت منتخب کریں — حاضری خود بخود محفوظ ہو جائے گی۔'
-                : 'Click “Mark” in any session cell, then pick a status — attendance saves automatically.'}
-            </span>
-            {rows.some((r) => Object.keys(r.sessions || {}).length > 0) && (
-              <span className="text-[#627D98]">{t('alreadyRecordedNote')}</span>
-            )}
-          </div>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
