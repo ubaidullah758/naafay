@@ -257,12 +257,22 @@ async function startServer() {
     const q = ((req.query.q as string) || '').trim();
     if (!q) return res.json({ students: [], teachers: [], books: [], research: [] });
     const like = `%${q}%`;
+    const cleanQ = q.replace(/[-\s+]/g, '');
+    const cleanLike = `%${cleanQ}%`;
     const students = db.prepare(
-      'SELECT id, student_code, full_name, full_name_ur, status FROM students WHERE full_name LIKE ? OR full_name_ur LIKE ? OR student_code LIKE ? OR phone LIKE ? LIMIT 6'
-    ).all(like, like, like, like);
+      `SELECT id, student_code, full_name, full_name_ur, phone, status 
+       FROM students 
+       WHERE full_name LIKE ? OR full_name_ur LIKE ? OR student_code LIKE ? OR phone LIKE ? 
+          OR REPLACE(REPLACE(REPLACE(phone, '-', ''), ' ', ''), '+92', '0') LIKE ? 
+       LIMIT 6`
+    ).all(like, like, like, like, cleanLike);
     const teachers = db.prepare(
-      'SELECT id, teacher_code, full_name, full_name_ur, specialization FROM teachers WHERE full_name LIKE ? OR full_name_ur LIKE ? OR teacher_code LIKE ? LIMIT 5'
-    ).all(like, like, like);
+      `SELECT id, teacher_code, full_name, full_name_ur, phone, specialization 
+       FROM teachers 
+       WHERE full_name LIKE ? OR full_name_ur LIKE ? OR teacher_code LIKE ? OR phone LIKE ? 
+          OR REPLACE(REPLACE(REPLACE(phone, '-', ''), ' ', ''), '+92', '0') LIKE ? 
+       LIMIT 5`
+    ).all(like, like, like, like, cleanLike);
     const books = db.prepare(
       'SELECT id, title_en, title_ur, author FROM books WHERE title_en LIKE ? OR title_ur LIKE ? OR author LIKE ? LIMIT 5'
     ).all(like, like, like);
@@ -290,9 +300,22 @@ async function startServer() {
     }
 
     if (search) {
-      where += ' AND (st.full_name LIKE ? OR st.full_name_ur LIKE ? OR st.student_code LIKE ? OR st.father_name LIKE ? OR st.phone LIKE ?)';
+      const cleanSearch = search.replace(/[-\s+]/g, '');
+      const searchDigits = search.replace(/\D/g, '');
+      where += ` AND (
+        st.full_name LIKE ? OR
+        st.full_name_ur LIKE ? OR
+        st.student_code LIKE ? OR
+        st.father_name LIKE ? OR
+        st.father_name_ur LIKE ? OR
+        st.phone LIKE ? OR
+        REPLACE(REPLACE(REPLACE(st.phone, '-', ''), ' ', ''), '+92', '0') LIKE ? OR
+        REPLACE(REPLACE(REPLACE(g.phone, '-', ''), ' ', ''), '+92', '0') LIKE ?
+      )`;
       const like = `%${search}%`;
-      params.push(like, like, like, like, like);
+      const cleanLike = `%${cleanSearch}%`;
+      const digitLike = searchDigits ? `%${searchDigits}%` : cleanLike;
+      params.push(like, like, like, like, like, like, digitLike, digitLike);
     }
     if (classId) {
       where += ' AND st.class_id = ?';
@@ -1267,8 +1290,29 @@ async function startServer() {
     res.json({ deleted: true });
   });
 
-  app.get('/api/teachers', (_req, res) => {
-    const teachers = db.prepare('SELECT * FROM teachers ORDER BY teacher_code ASC').all() as any[];
+  app.get('/api/teachers', (req, res) => {
+    const search = ((req.query.search as string) || '').trim();
+    let teachers = db.prepare('SELECT * FROM teachers ORDER BY teacher_code ASC').all() as any[];
+    if (search) {
+      const cleanSearch = search.replace(/[-\s+]/g, '').toLowerCase();
+      const searchDigits = search.replace(/\D/g, '');
+      const q = search.toLowerCase();
+      teachers = teachers.filter((t: any) => {
+        const phone = (t.phone || '').replace(/[-\s+]/g, '');
+        const phoneFormatted = phone.startsWith('92') ? '0' + phone.slice(2) : phone;
+        return (
+          (t.full_name || '').toLowerCase().includes(q) ||
+          (t.full_name_ur || '').includes(q) ||
+          (t.teacher_code || '').toLowerCase().includes(q) ||
+          (t.qualification || '').toLowerCase().includes(q) ||
+          (t.specialization || '').toLowerCase().includes(q) ||
+          (t.phone || '').includes(search) ||
+          (cleanSearch && phone.includes(cleanSearch)) ||
+          (cleanSearch && phoneFormatted.includes(cleanSearch)) ||
+          (searchDigits.length >= 3 && phone.includes(searchDigits))
+        );
+      });
+    }
     const assignments = db.prepare(`
       SELECT ta.*, c.name_en as class_name_en, c.name_ur as class_name_ur,
              s.name_en as subject_name_en, s.name_ur as subject_name_ur,

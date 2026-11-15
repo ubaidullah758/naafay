@@ -20,6 +20,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { apiFetch } from '../../lib/api';
 import { todayLocal } from '../../lib/date';
+import { formatPakistaniMobile, matchesPhoneSearch } from '../../lib/phone';
 import { NavSection } from '../Layout';
 import { ConfirmDialog } from '../ConfirmDialog';
 import { ErrorState } from '../ErrorState';
@@ -659,14 +660,15 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onNavigate }) =>
                       .filter(
                         (s: any) =>
                           !q ||
-                          `${s.student_code} ${s.full_name} ${s.full_name_ur} ${s.phone}`.toLowerCase().includes(q)
+                          `${s.student_code} ${s.full_name} ${s.full_name_ur}`.toLowerCase().includes(q) ||
+                          matchesPhoneSearch(s.phone, q)
                       )
                       .map((s: any) => (
                         <tr key={s.id} className="hover:bg-[#F8FAFC]">
                           <td className="px-4 py-3 font-mono-code font-semibold text-[#0284C7]">{s.student_code}</td>
                           <td className="px-4 py-3 font-medium text-[#0B2545]">{pick(s.full_name, s.full_name_ur)}</td>
                           <td className="px-4 py-3 text-[#486581]">{pick(s.class_name_en, s.class_name_ur)}</td>
-                          <td className="px-4 py-3 font-mono-code text-[#486581]" dir="ltr">{s.phone}</td>
+                          <td className="px-4 py-3 font-mono-code text-[#486581]" dir="ltr">{formatPakistaniMobile(s.phone)}</td>
                           <td className="px-4 py-3"><StatusText status={s.status} /></td>
                           <td className="px-4 py-3 text-end">
                             <div className="inline-flex items-center gap-1.5">
@@ -755,14 +757,15 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onNavigate }) =>
                       .filter(
                         (tc: any) =>
                           !q ||
-                          `${tc.teacher_code} ${tc.full_name} ${tc.full_name_ur}`.toLowerCase().includes(q)
+                          `${tc.teacher_code} ${tc.full_name} ${tc.full_name_ur}`.toLowerCase().includes(q) ||
+                          matchesPhoneSearch(tc.phone, q)
                       )
                       .map((tc: any) => (
                         <tr key={tc.id} className="hover:bg-[#F8FAFC]">
                           <td className="px-4 py-3 font-mono-code font-semibold text-[#057A4B]">{tc.teacher_code}</td>
                           <td className="px-4 py-3 font-medium text-[#0B2545]">{pick(tc.full_name, tc.full_name_ur)}</td>
                           <td className="px-4 py-3 text-[#486581]">{pick(tc.qualification, tc.qualification_ur)}</td>
-                          <td className="px-4 py-3 font-mono-code text-[#486581]" dir="ltr">{tc.phone}</td>
+                          <td className="px-4 py-3 font-mono-code text-[#486581]" dir="ltr">{formatPakistaniMobile(tc.phone)}</td>
                           <td className="px-4 py-3 text-end">
                             <div className="inline-flex items-center gap-1.5">
                               <button
@@ -1730,7 +1733,7 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onNavigate }) =>
               <input placeholder={lang === 'ur' ? 'نام (اردو)' : 'Full Name (UR)'} dir="rtl" value={studentModal.full_name_ur || ''} onChange={(e) => setStudentModal({ ...studentModal, full_name_ur: e.target.value })} className="rounded border border-[#D9E2EC] px-3 py-2" />
               <input required placeholder={lang === 'ur' ? 'ولدیت (انگریزی)' : 'Father Name (EN)'} value={studentModal.father_name || ''} onChange={(e) => setStudentModal({ ...studentModal, father_name: e.target.value })} className="rounded border border-[#D9E2EC] px-3 py-2" />
               <input placeholder={lang === 'ur' ? 'ولدیت (اردو)' : 'Father Name (UR)'} dir="rtl" value={studentModal.father_name_ur || ''} onChange={(e) => setStudentModal({ ...studentModal, father_name_ur: e.target.value })} className="rounded border border-[#D9E2EC] px-3 py-2" />
-              <input required placeholder={lang === 'ur' ? 'موبائل نمبر' : 'Phone'} value={studentModal.phone || ''} onChange={(e) => setStudentModal({ ...studentModal, phone: e.target.value })} className="rounded border border-[#D9E2EC] px-3 py-2" />
+              <input required placeholder="03001234567" dir="ltr" value={studentModal.phone || ''} onChange={(e) => setStudentModal({ ...studentModal, phone: e.target.value })} className="rounded border border-[#D9E2EC] px-3 py-2 font-mono-code" />
               <select value={studentModal.class_id || ''} onChange={(e) => setStudentModal({ ...studentModal, class_id: e.target.value })} className="rounded border border-[#D9E2EC] px-3 py-2">
                 {data.classes.map((cls: any) => (
                   <option key={cls.id} value={cls.id}>{pick(cls.name_en, cls.name_ur)}</option>
@@ -1759,7 +1762,7 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onNavigate }) =>
               <input placeholder={lang === 'ur' ? 'نام (اردو)' : 'Full Name (UR)'} dir="rtl" value={teacherModal.full_name_ur || ''} onChange={(e) => setTeacherModal({ ...teacherModal, full_name_ur: e.target.value })} className="rounded border border-[#D9E2EC] px-3 py-2" />
               <input required placeholder={lang === 'ur' ? 'اہلیت (انگریزی)' : 'Qualification (EN)'} value={teacherModal.qualification || ''} onChange={(e) => setTeacherModal({ ...teacherModal, qualification: e.target.value })} className="rounded border border-[#D9E2EC] px-3 py-2" />
               <input placeholder={lang === 'ur' ? 'اہلیت (اردو)' : 'Qualification (UR)'} dir="rtl" value={teacherModal.qualification_ur || ''} onChange={(e) => setTeacherModal({ ...teacherModal, qualification_ur: e.target.value })} className="rounded border border-[#D9E2EC] px-3 py-2" />
-              <input required placeholder={lang === 'ur' ? 'فون' : 'Phone'} value={teacherModal.phone || ''} onChange={(e) => setTeacherModal({ ...teacherModal, phone: e.target.value })} className="rounded border border-[#D9E2EC] px-3 py-2" />
+              <input required placeholder="03001234567" dir="ltr" value={teacherModal.phone || ''} onChange={(e) => setTeacherModal({ ...teacherModal, phone: e.target.value })} className="rounded border border-[#D9E2EC] px-3 py-2 font-mono-code" />
               <input placeholder={lang === 'ur' ? 'ای میل' : 'Email'} value={teacherModal.email || ''} onChange={(e) => setTeacherModal({ ...teacherModal, email: e.target.value })} className="rounded border border-[#D9E2EC] px-3 py-2" />
             </div>
             <div className="flex justify-end gap-2 pt-2">

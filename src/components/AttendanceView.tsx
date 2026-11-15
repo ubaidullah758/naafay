@@ -41,7 +41,7 @@ export const AttendanceView: React.FC = () => {
   const [corrRemarks, setCorrRemarks] = useState('');
 
   const sessionColumns: Array<{ id: string; labelEn: string; labelUr: string }> =
-    lookups.sessions && lookups.sessions.length > 0
+    Array.isArray(lookups?.sessions) && lookups.sessions.length > 0
       ? lookups.sessions.map((s: any) => ({
           id: s.id,
           labelEn: s.name_en,
@@ -54,9 +54,19 @@ export const AttendanceView: React.FC = () => {
         ];
 
   useEffect(() => {
-    apiFetch('/api/lookups', {}, user).then((res) => {
-      setLookups(res);
-    });
+    apiFetch('/api/lookups', {}, user)
+      .then((res) => {
+        if (res && typeof res === 'object') {
+          setLookups({
+            sessions: Array.isArray(res.sessions) ? res.sessions : [],
+            classes: Array.isArray(res.classes) ? res.classes : [],
+            batches: Array.isArray(res.batches) ? res.batches : [],
+          });
+        }
+      })
+      .catch((err) => {
+        console.warn('Failed to load lookups', err);
+      });
   }, [user?.role]);
 
   useEffect(() => {
@@ -77,7 +87,7 @@ export const AttendanceView: React.FC = () => {
       if (classId) p.set('classId', classId);
       if (batchId) p.set('batchId', batchId);
       const res = await apiFetch(`/api/attendance?${p.toString()}`, {}, user);
-      setRows(res.rows);
+      setRows(Array.isArray(res?.rows) ? res.rows : []);
       setRemarksDraft({});
       setOpenCell(null);
     } catch (err: any) {
@@ -94,7 +104,18 @@ export const AttendanceView: React.FC = () => {
       const p = new URLSearchParams({ date, month });
       if (classId) p.set('classId', classId);
       const res = await apiFetch(`/api/attendance/reports?${p.toString()}`, {}, user);
-      setReports(res);
+      if (res && typeof res === 'object') {
+        setReports({
+          daily: Array.isArray(res.daily) ? res.daily : [],
+          monthlySummary: Array.isArray(res.monthlySummary) ? res.monthlySummary : [],
+          absentList: Array.isArray(res.absentList) ? res.absentList : [],
+          corrections: Array.isArray(res.corrections) ? res.corrections : [],
+          dailyLessons: Array.isArray(res.dailyLessons) ? res.dailyLessons : [],
+          dailyMutala: Array.isArray(res.dailyMutala) ? res.dailyMutala : [],
+          dailyGrouped: Array.isArray(res.dailyGrouped) ? res.dailyGrouped : [],
+          ...res,
+        });
+      }
     } catch (err: any) {
       setError(err?.message || 'Failed to load attendance reports');
     } finally {
@@ -321,7 +342,7 @@ export const AttendanceView: React.FC = () => {
     exportToExcel(
       `attendance_monthly_${month}`,
       'Monthly Attendance',
-      reports.monthlySummary.map((r: any) => {
+      (reports?.monthlySummary || []).map((r: any) => {
         const pct = r.total_sessions > 0 ? Math.round(((r.present_count + r.late_count) / r.total_sessions) * 100) : 0;
         return {
           Student_ID: r.student_code,
@@ -344,7 +365,7 @@ export const AttendanceView: React.FC = () => {
       `Monthly Attendance Summary (${month})`,
       'Three-Session Attendance Percentage',
       ['ID', 'Student', 'Class', 'Total', 'Present', 'Late', 'Leave', 'Absent', '%'],
-      reports.monthlySummary.map((r: any) => {
+      (reports?.monthlySummary || []).map((r: any) => {
         const pct = r.total_sessions > 0 ? Math.round(((r.present_count + r.late_count) / r.total_sessions) * 100) : 0;
         return [
           r.student_code,
@@ -425,7 +446,7 @@ export const AttendanceView: React.FC = () => {
             <label className="block text-[11px] text-[#5A6D65] mb-1">{t('classLabel')}</label>
             <select value={classId} onChange={(e) => setClassId(e.target.value)} className="rounded-md border border-[#DCE4E0] px-3 py-1.5 text-xs bg-white">
               <option value="">{t('allClasses')}</option>
-              {lookups.classes.map((c: any) => (
+              {(lookups?.classes || []).map((c: any) => (
                 <option key={c.id} value={c.id}>{pick(c.name_en, c.name_ur)}</option>
               ))}
             </select>
@@ -992,7 +1013,7 @@ export const AttendanceView: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#EEF2F0]">
-              {reports.monthlySummary.map((r: any) => {
+              {(reports?.monthlySummary || []).map((r: any) => {
                 const pct = r.total_sessions > 0 ? Math.round(((r.present_count + r.late_count) / r.total_sessions) * 100) : 0;
                 return (
                   <tr key={r.student_id}>

@@ -25,6 +25,7 @@ import {
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth, UserRole } from '../context/AuthContext';
 import { apiFetch } from '../lib/api';
+import { formatPakistaniMobile } from '../lib/phone';
 
 export type NavSection =
   | 'admin_panel'
@@ -442,7 +443,10 @@ export const Layout: React.FC<LayoutProps> = ({ activeSection, onNavigate, onOpe
                         className="w-full flex items-center justify-between rounded px-2.5 py-2 text-start text-xs hover:bg-[#F4F7FA]"
                       >
                         <span className="font-medium text-[#0F1F38]">{pick(st.full_name, st.full_name_ur)}</span>
-                        <span className="font-mono-code text-[#0284C7]">{st.student_code}</span>
+                        <div className="flex items-center gap-2">
+                          {st.phone && <span className="font-mono-code text-[11px] text-[#5A6D65]" dir="ltr">{formatPakistaniMobile(st.phone)}</span>}
+                          <span className="font-mono-code text-[#0284C7]">{st.student_code}</span>
+                        </div>
                       </button>
                     ))}
                   </div>
@@ -463,7 +467,10 @@ export const Layout: React.FC<LayoutProps> = ({ activeSection, onNavigate, onOpe
                         className="w-full flex items-center justify-between rounded px-2.5 py-2 text-start text-xs hover:bg-[#F4F7FA]"
                       >
                         <span className="font-medium text-[#0F1F38]">{pick(tc.full_name, tc.full_name_ur)}</span>
-                        <span className="font-mono-code text-[#057A4B]">{tc.teacher_code}</span>
+                        <div className="flex items-center gap-2">
+                          {tc.phone && <span className="font-mono-code text-[11px] text-[#5A6D65]" dir="ltr">{formatPakistaniMobile(tc.phone)}</span>}
+                          <span className="font-mono-code text-[#057A4B]">{tc.teacher_code}</span>
+                        </div>
                       </button>
                     ))}
                   </div>

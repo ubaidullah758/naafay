@@ -7,6 +7,7 @@ import { StatusText } from './StatusText';
 import { ConfirmDialog } from './ConfirmDialog';
 import { ErrorState } from './ErrorState';
 import { formatActivityAction } from '../lib/activityLabels';
+import { formatPakistaniMobile } from '../lib/phone';
 
 interface StudentProfileViewProps {
   studentId: string;
@@ -305,7 +306,7 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({
                     <dt className="text-[#5A6D65]">{t('admissionDate')}</dt>
                     <dd className="col-span-2 font-mono-code text-[#111C18]">{st.admission_date || '—'}</dd>
                     <dt className="text-[#5A6D65]">{t('phone')}</dt>
-                    <dd className="col-span-2 font-mono-code text-[#111C18]">{st.phone || '—'}</dd>
+                    <dd className="col-span-2 font-mono-code text-[#111C18]" dir="ltr">{formatPakistaniMobile(st.phone) || '—'}</dd>
                     <dt className="text-[#5A6D65]">{t('address')}</dt>
                     <dd className="col-span-2 text-[#111C18]">{pick(st.address, st.address_ur) || '—'}</dd>
                   </dl>
@@ -512,7 +513,7 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({
                 <dt className="text-[#5A6D65]">{t('dob')}</dt>
                 <dd className="col-span-2 tabular-nums text-[#111C18]">{st.date_of_birth || '—'}</dd>
                 <dt className="text-[#5A6D65]">{t('phone')}</dt>
-                <dd className="col-span-2 font-mono-code text-[#111C18]">{st.phone}</dd>
+                <dd className="col-span-2 font-mono-code text-[#111C18]" dir="ltr">{formatPakistaniMobile(st.phone)}</dd>
                 <dt className="text-[#5A6D65]">{t('email')}</dt>
                 <dd className="col-span-2 font-mono-code text-[#111C18]">{st.email || '—'}</dd>
                 <dt className="text-[#5A6D65]">{t('address')}</dt>
@@ -537,7 +538,7 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({
                     <dt className="text-[#5A6D65]">{t('guardianName')}</dt>
                     <dd className="col-span-2 text-[#111C18]">{pick(g.full_name, g.full_name_ur)}</dd>
                     <dt className="text-[#5A6D65]">{t('guardianPhone')}</dt>
-                    <dd className="col-span-2 font-mono-code text-[#111C18]">{g.phone}</dd>
+                    <dd className="col-span-2 font-mono-code text-[#111C18]" dir="ltr">{formatPakistaniMobile(g.phone)}</dd>
                   </React.Fragment>
                 ))}
               </dl>

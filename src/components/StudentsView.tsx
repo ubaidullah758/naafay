@@ -4,6 +4,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import { apiFetch, fileToDataUrl } from '../lib/api';
 import { todayLocal } from '../lib/date';
+import { formatPakistaniMobile } from '../lib/phone';
 import { StatusText } from './StatusText';
 import { StudentProfileView } from './StudentProfileView';
 import { ConfirmDialog } from './ConfirmDialog';
@@ -155,10 +156,15 @@ export const StudentsView: React.FC<StudentsViewProps> = ({ initialStudentId }) 
     setSaving(true);
     setFormError('');
     try {
+      const payload = {
+        ...form,
+        phone: formatPakistaniMobile(form.phone),
+        guardian_phone: formatPakistaniMobile(form.guardian_phone),
+      };
       if (editingStudent) {
-        await apiFetch(`/api/students/${editingStudent.id}`, { method: 'PUT', body: JSON.stringify(form) }, user);
+        await apiFetch(`/api/students/${editingStudent.id}`, { method: 'PUT', body: JSON.stringify(payload) }, user);
       } else {
-        await apiFetch('/api/students', { method: 'POST', body: JSON.stringify(form) }, user);
+        await apiFetch('/api/students', { method: 'POST', body: JSON.stringify(payload) }, user);
       }
       setModalOpen(false);
       await loadData();
@@ -247,7 +253,15 @@ export const StudentsView: React.FC<StudentsViewProps> = ({ initialStudentId }) 
               </div>
               <div>
                 <label className="block text-[#5A6D65] mb-1">{t('phone')} *</label>
-                <input type="text" required value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="w-full rounded-md border border-[#DCE4E0] px-3 py-2" />
+                <input
+                  type="text"
+                  required
+                  placeholder="03001234567"
+                  dir="ltr"
+                  value={form.phone}
+                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                  className="w-full rounded-md border border-[#DCE4E0] px-3 py-2 font-mono-code"
+                />
               </div>
               <div>
                 <label className="block text-[#5A6D65] mb-1">{t('guardianName')}</label>
@@ -255,7 +269,14 @@ export const StudentsView: React.FC<StudentsViewProps> = ({ initialStudentId }) 
               </div>
               <div>
                 <label className="block text-[#5A6D65] mb-1">{t('guardianPhone')}</label>
-                <input type="text" value={form.guardian_phone} onChange={(e) => setForm({ ...form, guardian_phone: e.target.value })} className="w-full rounded-md border border-[#DCE4E0] px-3 py-2" />
+                <input
+                  type="text"
+                  placeholder="03001234567"
+                  dir="ltr"
+                  value={form.guardian_phone}
+                  onChange={(e) => setForm({ ...form, guardian_phone: e.target.value })}
+                  className="w-full rounded-md border border-[#DCE4E0] px-3 py-2 font-mono-code"
+                />
               </div>
               <div>
                 <label className="block text-[#5A6D65] mb-1">{t('academicYear')}</label>
@@ -340,7 +361,7 @@ export const StudentsView: React.FC<StudentsViewProps> = ({ initialStudentId }) 
               type="text"
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-              placeholder={t('searchPlaceholder')}
+              placeholder={lang === 'ur' ? 'نام، کوڈ، ولدیت یا موبائل نمبر (03001234567) سے تلاش کریں...' : 'Search by name, code, father or mobile (03001234567)...'}
               className={`w-full rounded-md border border-[#DCE4E0] py-2 text-xs ${lang === 'ur' ? 'pr-9 pl-3' : 'pl-9 pr-3'}`}
             />
           </div>
@@ -414,7 +435,7 @@ export const StudentsView: React.FC<StudentsViewProps> = ({ initialStudentId }) 
                       <td className="px-4 py-3 font-medium text-[#111C18]">{pick(st.full_name, st.full_name_ur)}</td>
                       <td className="px-4 py-3 text-[#4A5D55]">{pick(st.father_name, st.father_name_ur)}</td>
                       <td className="px-4 py-3 text-[#4A5D55]">{pick(st.class_name_en, st.class_name_ur)}</td>
-                      <td className="px-4 py-3 font-mono-code text-[#4A5D55]">{st.phone}</td>
+                      <td className="px-4 py-3 font-mono-code text-[#4A5D55]" dir="ltr">{formatPakistaniMobile(st.phone)}</td>
                       <td className="px-4 py-3 text-end font-semibold tabular-nums text-[#065F46]">{pct}%</td>
                       <td className="px-4 py-3"><StatusText status={st.status} /></td>
                       <td className="px-4 py-3 text-end" onClick={(e) => e.stopPropagation()}>

@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, ArrowLeft, ArrowRight, X, Edit, Calendar, Clock, Trash2 } from 'lucide-react';
+import { Plus, ArrowLeft, ArrowRight, X, Edit, Calendar, Clock, Trash2, Search } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import { apiFetch } from '../lib/api';
 import { todayLocal } from '../lib/date';
+import { formatPakistaniMobile, matchesPhoneSearch } from '../lib/phone';
 import { ErrorState } from './ErrorState';
 import { StatusText } from './StatusText';
 import { ConfirmDialog } from './ConfirmDialog';
@@ -16,6 +17,7 @@ export const TeachersView: React.FC<TeachersViewProps> = ({ initialTeacherId }) 
   const { lang, t, pick } = useLanguage();
   const { user, canManageStudents } = useAuth();
   const [subTab, setSubTab] = useState<'directory' | 'schedule'>('directory');
+  const [search, setSearch] = useState('');
   const [teachers, setTeachers] = useState<any[]>([]);
   const [schedule, setSchedule] = useState<any[]>([]);
   const [lookups, setLookups] = useState<any>({ classes: [], subjects: [], books: [], sessions: [] });
@@ -197,6 +199,7 @@ export const TeachersView: React.FC<TeachersViewProps> = ({ initialTeacherId }) 
     e.preventDefault();
     const payload = {
       ...form,
+      phone: formatPakistaniMobile(form.phone),
       assignments: [
         {
           class_id: form.assign_class_id,
@@ -527,60 +530,96 @@ export const TeachersView: React.FC<TeachersViewProps> = ({ initialTeacherId }) 
       </div>
 
       {/* DIRECTORY TAB */}
-      {subTab === 'directory' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {loading ? (
-            <div className="col-span-2 p-8 text-center text-xs text-[#5A6D65]">{t('loading')}</div>
-          ) : (
-            teachers.map((tc) => (
-              <div
-                key={tc.id}
-                onClick={() => setSelectedId(tc.id)}
-                className="rounded-lg border border-[#DCE4E0] bg-white p-5 hover:border-[#065F46]/60 cursor-pointer transition-colors space-y-2.5"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-mono-code text-xs font-semibold text-[#065F46]">{tc.teacher_code}</span>
-                  <StatusText status={tc.status} />
-                </div>
-                <h3 className="text-base text-[#111C18]">{pick(tc.full_name, tc.full_name_ur)}</h3>
-                <div className="text-xs text-[#5A6D65]">{pick(tc.qualification, tc.qualification_ur)}</div>
-                <div className="text-xs text-[#2A3B34]">{pick(tc.responsibilities, tc.responsibilities_ur)}</div>
+      {subTab === 'directory' && (() => {
+        const filteredTeachers = teachers.filter((tc: any) => {
+          if (!search.trim()) return true;
+          const q = search.trim().toLowerCase();
+          return (
+            (tc.full_name || '').toLowerCase().includes(q) ||
+            (tc.full_name_ur || '').includes(q) ||
+            (tc.teacher_code || '').toLowerCase().includes(q) ||
+            (tc.qualification || '').toLowerCase().includes(q) ||
+            (tc.qualification_ur || '').includes(q) ||
+            (tc.specialization || '').toLowerCase().includes(q) ||
+            matchesPhoneSearch(tc.phone, q)
+          );
+        });
 
-                {tc.assignments && tc.assignments.length > 0 && (
-                  <div className="pt-2.5 border-t border-[#EEF2F0] space-y-2 text-xs">
-                    {tc.assignments.slice(0, 3).map((a: any) => (
-                      <div key={a.id} className="rounded bg-[#F6F8F7] border border-[#E5ECE8] px-3 py-2 space-y-0.5">
-                        <div className="flex items-center justify-between gap-2 text-[#111C18]">
-                          <span>
-                            {pick(a.class_name_en, a.class_name_ur)} · {pick(a.book_title_en, a.book_title_ur) || pick(a.subject_name_en, a.subject_name_ur)}
-                          </span>
-                          <span className="font-mono-code text-[11px] text-[#065F46] tabular-nums whitespace-nowrap">
-                            {a.start_time ? `${a.start_time}–${a.end_time}` : ''}
-                          </span>
-                        </div>
-                        <div className="text-[11px] text-[#065F46]">
-                          <span className="text-[#5A6D65]">{lang === 'ur' ? 'روزانہ سبق (کہاں سے کہاں تک): ' : 'Taught (From — To): '}</span>
-                          {a.latest_end_position
-                            ? `${a.latest_start_position} — ${a.latest_end_position}`
-                            : (lang === 'ur' ? 'تاحال درج نہیں' : 'No lesson recorded yet')}
-                          {a.latest_lesson_date && (
-                            <span className="ms-2 font-mono-code text-[#5A6D65] tabular-nums">({a.latest_lesson_date})</span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                <div className="pt-2 border-t border-[#EEF2F0] flex items-center justify-between text-xs text-[#5A6D65]">
-                  <span className="font-mono-code">{tc.phone}</span>
-                  <span className="text-[#065F46]">{lang === 'ur' ? 'پروفائل اور مکمل اسباق ←' : 'View Profile & Lessons →'}</span>
-                </div>
+        return (
+          <div className="space-y-4">
+            <div className="rounded-lg border border-[#DCE4E0] bg-white p-3 flex flex-wrap items-center justify-between gap-3">
+              <div className="relative flex-1 min-w-[220px] max-w-md">
+                <Search className={`h-4 w-4 text-[#64746D] absolute top-1/2 -translate-y-1/2 ${lang === 'ur' ? 'right-3' : 'left-3'}`} />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder={lang === 'ur' ? 'نام، تخصص یا موبائل نمبر (03001234567) سے استاد تلاش کریں...' : 'Search teacher by name, subject or mobile (03001234567)...'}
+                  className={`w-full rounded-md border border-[#DCE4E0] py-2 text-xs ${lang === 'ur' ? 'pr-9 pl-3' : 'pl-9 pr-3'}`}
+                />
               </div>
-            ))
-          )}
-        </div>
-      )}
+              <div className="text-xs text-[#5A6D65]">
+                {lang === 'ur' ? `کل اساتذہ: ${filteredTeachers.length}` : `Total Teachers: ${filteredTeachers.length}`}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {loading ? (
+                <div className="col-span-2 p-8 text-center text-xs text-[#5A6D65]">{t('loading')}</div>
+              ) : filteredTeachers.length === 0 ? (
+                <div className="col-span-2 p-8 text-center text-xs text-[#5A6D65] bg-white rounded-lg border border-[#DCE4E0]">{t('noData')}</div>
+              ) : (
+                filteredTeachers.map((tc) => (
+                  <div
+                    key={tc.id}
+                    onClick={() => setSelectedId(tc.id)}
+                    className="rounded-lg border border-[#DCE4E0] bg-white p-5 hover:border-[#065F46]/60 cursor-pointer transition-colors space-y-2.5"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono-code text-xs font-semibold text-[#065F46]">{tc.teacher_code}</span>
+                      <StatusText status={tc.status} />
+                    </div>
+                    <h3 className="text-base text-[#111C18]">{pick(tc.full_name, tc.full_name_ur)}</h3>
+                    <div className="text-xs text-[#5A6D65]">{pick(tc.qualification, tc.qualification_ur)}</div>
+                    <div className="text-xs text-[#2A3B34]">{pick(tc.responsibilities, tc.responsibilities_ur)}</div>
+
+                    {tc.assignments && tc.assignments.length > 0 && (
+                      <div className="pt-2.5 border-t border-[#EEF2F0] space-y-2 text-xs">
+                        {tc.assignments.slice(0, 3).map((a: any) => (
+                          <div key={a.id} className="rounded bg-[#F6F8F7] border border-[#E5ECE8] px-3 py-2 space-y-0.5">
+                            <div className="flex items-center justify-between gap-2 text-[#111C18]">
+                              <span>
+                                {pick(a.class_name_en, a.class_name_ur)} · {pick(a.book_title_en, a.book_title_ur) || pick(a.subject_name_en, a.subject_name_ur)}
+                              </span>
+                              <span className="font-mono-code text-[11px] text-[#065F46] tabular-nums whitespace-nowrap">
+                                {a.start_time ? `${a.start_time}–${a.end_time}` : ''}
+                              </span>
+                            </div>
+                            <div className="text-[11px] text-[#065F46]">
+                              <span className="text-[#5A6D65]">{lang === 'ur' ? 'روزانہ سبق (کہاں سے کہاں تک): ' : 'Taught (From — To): '}</span>
+                              {a.latest_end_position
+                                ? `${a.latest_start_position} — ${a.latest_end_position}`
+                                : (lang === 'ur' ? 'تاحال درج نہیں' : 'No lesson recorded yet')}
+                              {a.latest_lesson_date && (
+                                <span className="ms-2 font-mono-code text-[#5A6D65] tabular-nums">({a.latest_lesson_date})</span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="pt-2 border-t border-[#EEF2F0] flex items-center justify-between text-xs text-[#5A6D65]">
+                      <span className="font-mono-code" dir="ltr">{formatPakistaniMobile(tc.phone)}</span>
+                      <span className="text-[#065F46]">{lang === 'ur' ? 'پروفائل اور مکمل اسباق ←' : 'View Profile & Lessons →'}</span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* CLASS & SUBJECT SCHEDULE TAB */}
       {subTab === 'schedule' && (
@@ -694,12 +733,20 @@ export const TeachersView: React.FC<TeachersViewProps> = ({ initialTeacherId }) 
                 </div>
                 <div>
                   <label className="block text-[#5A6D65] mb-1">{t('phone')} *</label>
-                  <input type="text" required value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="w-full rounded-md border border-[#DCE4E0] px-3 py-2" />
+                  <input
+                    type="text"
+                    required
+                    placeholder="03001234567"
+                    dir="ltr"
+                    value={form.phone}
+                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                    className="w-full rounded-md border border-[#DCE4E0] px-3 py-2 font-mono-code"
+                  />
                 </div>
                 <div>
                   <label className="block text-[#5A6D65] mb-1">{t('classLabel')}</label>
                   <select value={form.assign_class_id} onChange={(e) => setForm({ ...form, assign_class_id: e.target.value })} className="w-full rounded-md border border-[#DCE4E0] px-3 py-2 bg-white">
-                    {lookups.classes.map((c: any) => (
+                    {(lookups?.classes || []).map((c: any) => (
                       <option key={c.id} value={c.id}>{pick(c.name_en, c.name_ur)}</option>
                     ))}
                   </select>
@@ -707,7 +754,7 @@ export const TeachersView: React.FC<TeachersViewProps> = ({ initialTeacherId }) 
                 <div>
                   <label className="block text-[#5A6D65] mb-1">{t('subjectLabel')}</label>
                   <select value={form.assign_subject_id} onChange={(e) => setForm({ ...form, assign_subject_id: e.target.value })} className="w-full rounded-md border border-[#DCE4E0] px-3 py-2 bg-white">
-                    {lookups.subjects.map((s: any) => (
+                    {(lookups?.subjects || []).map((s: any) => (
                       <option key={s.id} value={s.id}>{pick(s.name_en, s.name_ur)}</option>
                     ))}
                   </select>
@@ -715,7 +762,7 @@ export const TeachersView: React.FC<TeachersViewProps> = ({ initialTeacherId }) 
                 <div>
                   <label className="block text-[#5A6D65] mb-1">{t('book')}</label>
                   <select value={form.assign_book_id} onChange={(e) => setForm({ ...form, assign_book_id: e.target.value })} className="w-full rounded-md border border-[#DCE4E0] px-3 py-2 bg-white">
-                    {lookups.books.map((b: any) => (
+                    {(lookups?.books || []).map((b: any) => (
                       <option key={b.id} value={b.id}>{pick(b.title_en, b.title_ur)}</option>
                     ))}
                   </select>
@@ -723,7 +770,7 @@ export const TeachersView: React.FC<TeachersViewProps> = ({ initialTeacherId }) 
                 <div>
                   <label className="block text-[#5A6D65] mb-1">{t('selectSession')}</label>
                   <select value={form.assign_session_id} onChange={(e) => setForm({ ...form, assign_session_id: e.target.value })} className="w-full rounded-md border border-[#DCE4E0] px-3 py-2 bg-white">
-                    {lookups.sessions.map((s: any) => (
+                    {(lookups?.sessions || []).map((s: any) => (
                       <option key={s.id} value={s.id}>{pick(s.name_en, s.name_ur)}</option>
                     ))}
                   </select>

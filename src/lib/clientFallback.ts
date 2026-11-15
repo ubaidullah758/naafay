@@ -16,6 +16,7 @@ import {
   STATIC_RESEARCH,
   STATIC_REPORTS_OVERVIEW,
 } from './staticInitialData';
+import { formatPakistaniMobile, matchesPhoneSearch } from './phone';
 
 const STORAGE_KEYS = {
   attendance: 'naafay_local_attendance',
@@ -135,7 +136,8 @@ export async function handleClientFallback(url: string, options: RequestInit = {
           (s.full_name_ur || '').includes(qSearch) ||
           (s.student_code || '').toLowerCase().includes(qSearch) ||
           (s.father_name || '').toLowerCase().includes(qSearch) ||
-          (s.phone || '').includes(qSearch)
+          matchesPhoneSearch(s.phone, qSearch) ||
+          matchesPhoneSearch(s.guardian_phone, qSearch)
       );
     }
     if (qClassId) {
@@ -144,14 +146,26 @@ export async function handleClientFallback(url: string, options: RequestInit = {
     if (qStatus) {
       filtered = filtered.filter((s: any) => s.status === qStatus);
     }
-    return jsonResponse(filtered);
+
+    const formatted = filtered.map((s: any) => ({
+      ...s,
+      phone: formatPakistaniMobile(s.phone),
+      guardian_phone: formatPakistaniMobile(s.guardian_phone || s.phone),
+    }));
+
+    return jsonResponse(formatted);
   }
 
   // 9. Single Student Detail (/api/students/:id)
   if (pathname.startsWith('/api/students/')) {
     const stuId = decodeURIComponent(pathname.replace('/api/students/', '').split('/')[0]);
     const studentsList: any[] = Array.isArray(STATIC_STUDENTS) ? STATIC_STUDENTS : STATIC_STUDENTS?.students || [];
-    const found = studentsList.find((s) => s.id === stuId || s.student_code === stuId) || studentsList[0] || {};
+    const rawFound = studentsList.find((s) => s.id === stuId || s.student_code === stuId) || studentsList[0] || {};
+    const found = {
+      ...rawFound,
+      phone: formatPakistaniMobile(rawFound.phone),
+      guardian_phone: formatPakistaniMobile(rawFound.guardian_phone || rawFound.phone),
+    };
 
     const guardians = [
       {
@@ -159,7 +173,7 @@ export async function handleClientFallback(url: string, options: RequestInit = {
         student_id: found.id,
         full_name: found.guardian_name || found.father_name || 'Hafiz Muhammad Ibrahim',
         full_name_ur: found.guardian_name_ur || found.father_name_ur || 'حافظ محمد ابراہیم',
-        phone: found.guardian_phone || found.phone || '+92-301-7782310',
+        phone: formatPakistaniMobile(found.guardian_phone || found.phone || '03017782310'),
         relationship: 'Father / Guardian',
         is_primary: 1,
       },
@@ -262,14 +276,38 @@ export async function handleClientFallback(url: string, options: RequestInit = {
   // 10. Teachers List (/api/teachers) -> Returns Array directly!
   if (pathname === '/api/teachers') {
     const teachersArr = Array.isArray(STATIC_TEACHERS) ? STATIC_TEACHERS : STATIC_TEACHERS?.teachers || [];
-    return jsonResponse(teachersArr);
+    const qSearch = (parsed.searchParams.get('search') || '').toLowerCase().trim();
+
+    let filtered = teachersArr;
+    if (qSearch) {
+      filtered = filtered.filter(
+        (t: any) =>
+          (t.full_name || '').toLowerCase().includes(qSearch) ||
+          (t.full_name_ur || '').includes(qSearch) ||
+          (t.teacher_code || '').toLowerCase().includes(qSearch) ||
+          (t.qualification || '').toLowerCase().includes(qSearch) ||
+          (t.specialization || '').toLowerCase().includes(qSearch) ||
+          matchesPhoneSearch(t.phone, qSearch)
+      );
+    }
+
+    const formatted = filtered.map((t: any) => ({
+      ...t,
+      phone: formatPakistaniMobile(t.phone),
+    }));
+
+    return jsonResponse(formatted);
   }
 
   // 10b. Single Teacher Detail (/api/teachers/:id)
   if (pathname.startsWith('/api/teachers/')) {
     const tchId = decodeURIComponent(pathname.replace('/api/teachers/', '').split('/')[0]);
     const teachersList: any[] = Array.isArray(STATIC_TEACHERS) ? STATIC_TEACHERS : STATIC_TEACHERS?.teachers || [];
-    const found = teachersList.find((t) => t.id === tchId || t.teacher_code === tchId) || teachersList[0] || {};
+    const rawFound = teachersList.find((t) => t.id === tchId || t.teacher_code === tchId) || teachersList[0] || {};
+    const found = {
+      ...rawFound,
+      phone: formatPakistaniMobile(rawFound.phone),
+    };
 
     const assignments = found.assignments || [
       {
@@ -445,10 +483,28 @@ export async function handleClientFallback(url: string, options: RequestInit = {
       };
     });
 
+    const monthlySummary = students.map((s: any) => ({
+      student_id: s.id,
+      student_code: s.student_code,
+      full_name: s.full_name,
+      full_name_ur: s.full_name_ur,
+      class_name_en: s.class_name_en || 'Takhassus fil Fiqh',
+      class_name_ur: s.class_name_ur || 'تخصص فی الفقہ',
+      present_count: 22,
+      late_count: 2,
+      leave_count: 1,
+      absent_count: 1,
+      total_sessions: 26,
+    }));
+
     return jsonResponse({
       date: qDate,
       reports: dailySummary,
       summary: { totalStudents: students.length },
+      monthlySummary,
+      dailyLessons: [],
+      dailyMutala: [],
+      absentList: [],
       corrections: [],
       daily: [],
       dailyGrouped: [],
@@ -591,12 +647,32 @@ export async function handleClientFallback(url: string, options: RequestInit = {
     const researchList: any[] = Array.isArray(STATIC_RESEARCH?.topics) ? STATIC_RESEARCH.topics : [];
 
     const matchedStudents = q
-      ? studentsList.filter((s) => (s.full_name || '').toLowerCase().includes(q) || (s.full_name_ur || '').includes(q) || (s.student_code || '').toLowerCase().includes(q)).slice(0, 6)
-      : studentsList.slice(0, 6);
+      ? studentsList
+          .filter(
+            (s) =>
+              (s.full_name || '').toLowerCase().includes(q) ||
+              (s.full_name_ur || '').includes(q) ||
+              (s.student_code || '').toLowerCase().includes(q) ||
+              matchesPhoneSearch(s.phone, q) ||
+              matchesPhoneSearch(s.guardian_phone, q)
+          )
+          .map((s) => ({ ...s, phone: formatPakistaniMobile(s.phone) }))
+          .slice(0, 6)
+      : studentsList.slice(0, 6).map((s) => ({ ...s, phone: formatPakistaniMobile(s.phone) }));
 
     const matchedTeachers = q
-      ? teachersList.filter((t) => (t.full_name || '').toLowerCase().includes(q) || (t.full_name_ur || '').includes(q) || (t.teacher_code || '').toLowerCase().includes(q)).slice(0, 5)
-      : teachersList.slice(0, 5);
+      ? teachersList
+          .filter(
+            (t) =>
+              (t.full_name || '').toLowerCase().includes(q) ||
+              (t.full_name_ur || '').includes(q) ||
+              (t.teacher_code || '').toLowerCase().includes(q) ||
+              (t.qualification || '').toLowerCase().includes(q) ||
+              matchesPhoneSearch(t.phone, q)
+          )
+          .map((t) => ({ ...t, phone: formatPakistaniMobile(t.phone) }))
+          .slice(0, 5)
+      : teachersList.slice(0, 5).map((t) => ({ ...t, phone: formatPakistaniMobile(t.phone) }));
 
     const matchedBooks = q
       ? booksList.filter((b) => (b.title_en || '').toLowerCase().includes(q) || (b.title_ur || '').includes(q) || (b.author || '').includes(q)).slice(0, 5)
