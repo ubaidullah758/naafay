@@ -75,8 +75,13 @@ export const StudentsView: React.FC<StudentsViewProps> = ({ initialStudentId }) 
         apiFetch(`/api/students?${params.toString()}`, { signal }, user),
         apiFetch('/api/lookups', { signal }, user),
       ]);
-      setStudents(stuRes);
-      setLookups(lkpRes);
+      setStudents(Array.isArray(stuRes) ? stuRes : Array.isArray(stuRes?.students) ? stuRes.students : []);
+      setLookups({
+        classes: Array.isArray(lkpRes?.classes) ? lkpRes.classes : [],
+        batches: Array.isArray(lkpRes?.batches) ? lkpRes.batches : [],
+        academicYears: Array.isArray(lkpRes?.academicYears) ? lkpRes.academicYears : [],
+        ...(lkpRes || {}),
+      });
     } catch (err: any) {
       if (signal?.aborted) return;
       setError(err?.message || 'Failed to load students');
@@ -255,7 +260,7 @@ export const StudentsView: React.FC<StudentsViewProps> = ({ initialStudentId }) 
               <div>
                 <label className="block text-[#5A6D65] mb-1">{t('academicYear')}</label>
                 <select value={form.academic_year_id} onChange={(e) => setForm({ ...form, academic_year_id: e.target.value })} className="w-full rounded-md border border-[#DCE4E0] px-3 py-2 bg-white">
-                  {lookups.academicYears.map((y: any) => (
+                  {(lookups?.academicYears || []).map((y: any) => (
                     <option key={y.id} value={y.id}>{pick(y.title_en, y.title_ur)}</option>
                   ))}
                 </select>
@@ -263,7 +268,7 @@ export const StudentsView: React.FC<StudentsViewProps> = ({ initialStudentId }) 
               <div>
                 <label className="block text-[#5A6D65] mb-1">{t('classLabel')}</label>
                 <select value={form.class_id} onChange={(e) => setForm({ ...form, class_id: e.target.value })} className="w-full rounded-md border border-[#DCE4E0] px-3 py-2 bg-white">
-                  {lookups.classes.map((c: any) => (
+                  {(lookups?.classes || []).map((c: any) => (
                     <option key={c.id} value={c.id}>{pick(c.name_en, c.name_ur)}</option>
                   ))}
                 </select>
@@ -272,7 +277,7 @@ export const StudentsView: React.FC<StudentsViewProps> = ({ initialStudentId }) 
                 <label className="block text-[#5A6D65] mb-1">{t('batchLabel')}</label>
                 <select value={form.batch_id} onChange={(e) => setForm({ ...form, batch_id: e.target.value })} className="w-full rounded-md border border-[#DCE4E0] px-3 py-2 bg-white">
                   <option value="">—</option>
-                  {lookups.batches
+                  {(lookups?.batches || [])
                     .filter((b: any) => !form.class_id || b.class_id === form.class_id)
                     .map((b: any) => (
                       <option key={b.id} value={b.id}>{pick(b.name_en, b.name_ur)}</option>
@@ -315,8 +320,10 @@ export const StudentsView: React.FC<StudentsViewProps> = ({ initialStudentId }) 
     );
   }
 
-  const totalPages = Math.max(1, Math.ceil(students.length / pageSize));
-  const paged = students.slice((page - 1) * pageSize, page * pageSize);
+  const safeStudents = Array.isArray(students) ? students : [];
+  const safeClasses = Array.isArray(lookups?.classes) ? lookups.classes : [];
+  const totalPages = Math.max(1, Math.ceil(safeStudents.length / pageSize));
+  const paged = safeStudents.slice((page - 1) * pageSize, page * pageSize);
 
   if (error) {
     return <ErrorState message={error} onRetry={loadData} />;
@@ -344,7 +351,7 @@ export const StudentsView: React.FC<StudentsViewProps> = ({ initialStudentId }) 
             className="rounded-md border border-[#DCE4E0] px-3 py-2 text-xs bg-white"
           >
             <option value="">{t('allClasses')}</option>
-            {lookups.classes.map((c: any) => (
+            {safeClasses.map((c: any) => (
               <option key={c.id} value={c.id}>{pick(c.name_en, c.name_ur)}</option>
             ))}
           </select>
@@ -445,7 +452,7 @@ export const StudentsView: React.FC<StudentsViewProps> = ({ initialStudentId }) 
         {/* Pagination */}
         <div className="px-4 py-3 border-t border-[#E5ECE8] flex items-center justify-between text-xs text-[#5A6D65]">
           <span className="tabular-nums">
-            {students.length} {lang === 'ur' ? 'طلبہ' : 'students'} · {page} / {totalPages}
+            {safeStudents.length} {lang === 'ur' ? 'طلبہ' : 'students'} · {page} / {totalPages}
           </span>
           <div className="flex items-center gap-2">
             <button

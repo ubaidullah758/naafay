@@ -123,21 +123,210 @@ export async function handleClientFallback(url: string, options: RequestInit = {
   // 8. Students List (/api/students) -> Returns Array directly!
   if (pathname === '/api/students') {
     const studentsArr = Array.isArray(STATIC_STUDENTS) ? STATIC_STUDENTS : STATIC_STUDENTS?.students || [];
-    return jsonResponse(studentsArr);
+    const qSearch = (parsed.searchParams.get('search') || '').toLowerCase().trim();
+    const qClassId = parsed.searchParams.get('classId');
+    const qStatus = parsed.searchParams.get('status');
+
+    let filtered = studentsArr;
+    if (qSearch) {
+      filtered = filtered.filter(
+        (s: any) =>
+          (s.full_name || '').toLowerCase().includes(qSearch) ||
+          (s.full_name_ur || '').includes(qSearch) ||
+          (s.student_code || '').toLowerCase().includes(qSearch) ||
+          (s.father_name || '').toLowerCase().includes(qSearch) ||
+          (s.phone || '').includes(qSearch)
+      );
+    }
+    if (qClassId) {
+      filtered = filtered.filter((s: any) => s.class_id === qClassId);
+    }
+    if (qStatus) {
+      filtered = filtered.filter((s: any) => s.status === qStatus);
+    }
+    return jsonResponse(filtered);
   }
 
   // 9. Single Student Detail (/api/students/:id)
   if (pathname.startsWith('/api/students/')) {
-    const stuId = pathname.replace('/api/students/', '');
+    const stuId = decodeURIComponent(pathname.replace('/api/students/', '').split('/')[0]);
     const studentsList: any[] = Array.isArray(STATIC_STUDENTS) ? STATIC_STUDENTS : STATIC_STUDENTS?.students || [];
-    const found = studentsList.find((s) => s.id === stuId || s.student_code === stuId) || studentsList[0];
-    return jsonResponse({ student: found, records: [] });
+    const found = studentsList.find((s) => s.id === stuId || s.student_code === stuId) || studentsList[0] || {};
+
+    const guardians = [
+      {
+        id: 'g-' + (found.id || '1'),
+        student_id: found.id,
+        full_name: found.guardian_name || found.father_name || 'Hafiz Muhammad Ibrahim',
+        full_name_ur: found.guardian_name_ur || found.father_name_ur || 'حافظ محمد ابراہیم',
+        phone: found.guardian_phone || found.phone || '+92-301-7782310',
+        relationship: 'Father / Guardian',
+        is_primary: 1,
+      },
+    ];
+
+    const attMap = getAttendanceMap();
+    const date = STATIC_ATTENDANCE.date || new Date().toISOString().slice(0, 10);
+    const attendanceRecords: any[] = [];
+    const sessionDefs = [
+      { id: 'ses-morning', code: 'morning_zuhr', name_en: 'Morning to Zuhr', name_ur: 'صبح تا ظہر', sort_order: 1 },
+      { id: 'ses-zuhr', code: 'zuhr_asr', name_en: 'Zuhr to Asr', name_ur: 'ظہر تا عصر', sort_order: 2 },
+      { id: 'ses-maghrib', code: 'maghrib_isha', name_en: 'Maghrib to Isha', name_ur: 'مغرب تا عشاء', sort_order: 3 },
+    ];
+    for (const sDef of sessionDefs) {
+      const key = `${found.id}_${date}_${sDef.id}`;
+      const rec = attMap[key];
+      attendanceRecords.push({
+        id: rec?.id || 'att-' + Math.random().toString(36).slice(2, 7),
+        student_id: found.id,
+        session_id: sDef.id,
+        session_code: sDef.code,
+        session_name_en: sDef.name_en,
+        session_name_ur: sDef.name_ur,
+        sort_order: sDef.sort_order,
+        attendance_date: date,
+        status: rec?.status || 'present',
+        remarks: rec?.remarks || '',
+      });
+    }
+
+    const mutalaList: any[] = Array.isArray(STATIC_MUTALA) ? STATIC_MUTALA : [];
+    const studentMutala = mutalaList.filter((m) => m.student_id === found.id || m.student_code === found.student_code);
+    const mutala = studentMutala.length > 0 ? studentMutala : mutalaList.slice(0, 6);
+
+    const lessonsList: any[] = Array.isArray(STATIC_LESSONS?.lessons) ? STATIC_LESSONS.lessons : Array.isArray(STATIC_LESSONS) ? STATIC_LESSONS : [];
+    const lessons = lessonsList.filter((l) => !found.class_id || l.class_id === found.class_id || !l.class_id);
+
+    const examsList: any[] = Array.isArray(STATIC_EXAMS) ? STATIC_EXAMS : [];
+    const results: any[] = [];
+    for (const ex of examsList) {
+      for (const res of ex.results || []) {
+        if (res.student_id === found.id || res.student_code === found.student_code) {
+          results.push({ ...res, exam_title_en: ex.title_en, exam_title_ur: ex.title_ur });
+        }
+      }
+    }
+
+    const researchList: any[] = Array.isArray(STATIC_RESEARCH?.assignments) ? STATIC_RESEARCH.assignments : [];
+    const research = researchList.filter((r) => r.student_id === found.id || r.student_code === found.student_code);
+
+    const subList: any[] = Array.isArray(STATIC_LOOKUPS?.subjects) ? STATIC_LOOKUPS.subjects : [];
+    const enrolledSubjects = subList
+      .filter((s) => !found.class_id || s.class_id === found.class_id)
+      .map((s) => {
+        const bk = (STATIC_LOOKUPS?.books || []).find((b: any) => b.subject_id === s.id) || {};
+        return {
+          subject_id: s.id,
+          subject_code: s.code,
+          subject_name_en: s.name_en,
+          subject_name_ur: s.name_ur,
+          book_id: bk.id || 'bk-1',
+          book_title_en: bk.title_en || 'Fiqh Book',
+          book_title_ur: bk.title_ur || 'کتاب الفقہ',
+          teacher_name: 'Mufti Salman Mansoorpuri',
+          teacher_name_ur: 'مفتی سلمان منصورپوری',
+          start_time: '08:00',
+          end_time: '09:30',
+          days_of_week: 'ہفتہ تا بدھ',
+          room_name: 'درسگاہ ۱',
+        };
+      });
+
+    const monthlyReports = [
+      {
+        month: date.slice(0, 7),
+        attTotal: 24,
+        attPresent: 22,
+        attAbsent: 2,
+        mutalaCount: mutala.length || 10,
+        mutalaApproved: mutala.length || 9,
+      },
+    ];
+
+    return jsonResponse({
+      student: found,
+      guardians,
+      attendance: attendanceRecords,
+      mutala,
+      lessons: lessons.slice(0, 10),
+      exams: examsList,
+      results,
+      research,
+      documents: [],
+      monthlyReports,
+      activityHistory: [],
+      enrolledSubjects,
+    });
   }
 
   // 10. Teachers List (/api/teachers) -> Returns Array directly!
   if (pathname === '/api/teachers') {
     const teachersArr = Array.isArray(STATIC_TEACHERS) ? STATIC_TEACHERS : STATIC_TEACHERS?.teachers || [];
     return jsonResponse(teachersArr);
+  }
+
+  // 10b. Single Teacher Detail (/api/teachers/:id)
+  if (pathname.startsWith('/api/teachers/')) {
+    const tchId = decodeURIComponent(pathname.replace('/api/teachers/', '').split('/')[0]);
+    const teachersList: any[] = Array.isArray(STATIC_TEACHERS) ? STATIC_TEACHERS : STATIC_TEACHERS?.teachers || [];
+    const found = teachersList.find((t) => t.id === tchId || t.teacher_code === tchId) || teachersList[0] || {};
+
+    const assignments = found.assignments || [
+      {
+        id: 'ta-1',
+        teacher_id: found.id,
+        class_id: 'cls-tak1',
+        class_name_en: 'Takhassus fil Fiqh — Year 1',
+        class_name_ur: 'تخصص فی الفقہ — سالِ اول',
+        subject_name_en: 'Hanafi Fiqh',
+        subject_name_ur: 'فقہِ حنفی',
+        book_title_en: 'Radd al-Muhtar (Shami)',
+        book_title_ur: 'رد المحتار (فتاویٰ شامی)',
+        session_name_en: 'Morning to Zuhr',
+        session_name_ur: 'صبح تا ظہر',
+        start_time: '08:00',
+        end_time: '09:30',
+        days_of_week: 'ہفتہ تا بدھ',
+        room_name: 'درسگاہ ۱',
+        latest_lesson_date: '2026-11-14',
+        latest_start_position: 'باب صلوۃ المسافر',
+        latest_end_position: 'ص ۱۱۰ تا ۱۲۵',
+      },
+    ];
+
+    const supervisedStudents = (Array.isArray(STATIC_STUDENTS) ? STATIC_STUDENTS : []).slice(0, 5);
+    const lessons = (Array.isArray(STATIC_LESSONS?.lessons) ? STATIC_LESSONS.lessons : []).slice(0, 10);
+    const studyReviews = (Array.isArray(STATIC_MUTALA) ? STATIC_MUTALA : []).slice(0, 6);
+    const researchSupervisions = (Array.isArray(STATIC_RESEARCH?.assignments) ? STATIC_RESEARCH.assignments : []).slice(0, 4);
+
+    return jsonResponse({
+      teacher: found,
+      assignments,
+      supervisedStudents,
+      lessons,
+      studyReviews,
+      researchSupervisions,
+      performance: {
+        totalLessons: lessons.length || 14,
+        totalStudyReviews: studyReviews.length || 8,
+        supervisedStudentCount: supervisedStudents.length || 5,
+        researchCount: researchSupervisions.length || 2,
+      },
+    });
+  }
+
+  // 10c. Schedule (/api/schedule)
+  if (pathname === '/api/schedule') {
+    const qClassId = parsed.searchParams.get('classId');
+    const qTeacherId = parsed.searchParams.get('teacherId');
+    const teachersList: any[] = Array.isArray(STATIC_TEACHERS) ? STATIC_TEACHERS : [];
+    let allAssignments: any[] = [];
+    for (const t of teachersList) {
+      if (t.assignments) allAssignments.push(...t.assignments);
+    }
+    if (qClassId) allAssignments = allAssignments.filter((a) => a.class_id === qClassId);
+    if (qTeacherId) allAssignments = allAssignments.filter((a) => a.teacher_id === qTeacherId);
+    return jsonResponse(allAssignments);
   }
 
   // 11. Attendance Sheet (/api/attendance)
@@ -256,7 +445,14 @@ export async function handleClientFallback(url: string, options: RequestInit = {
       };
     });
 
-    return jsonResponse({ date: qDate, reports: dailySummary, summary: { totalStudents: students.length } });
+    return jsonResponse({
+      date: qDate,
+      reports: dailySummary,
+      summary: { totalStudents: students.length },
+      corrections: [],
+      daily: [],
+      dailyGrouped: [],
+    });
   }
 
   // 15. Reports Overview (/api/reports/overview)
@@ -320,8 +516,26 @@ export async function handleClientFallback(url: string, options: RequestInit = {
   if (pathname.startsWith('/api/fatwa/questions/')) {
     const fId = pathname.replace('/api/fatwa/questions/', '').split('/')[0];
     const qList: any[] = STATIC_FATWA_DASHBOARD?.questions || [];
-    const found = qList.find((q) => q.id === fId || q.fatwa_code === fId) || qList[0];
-    return jsonResponse({ question: found, drafts: [], references: [], documents: [] });
+    const found = qList.find((q) => q.id === fId || q.fatwa_code === fId) || qList[0] || {};
+    return jsonResponse({
+      question: found,
+      draft: found.draft || {
+        draft_title: found.subject_title_ur || '',
+        draft_body_ur: found.answer_text_ur || 'بسم اللہ الرحمٰن الرحیم\nالجواب وباللہ التوفیق:\n\nواللہ تعالیٰ اعلم بالصواب',
+        draft_body_ar: '',
+        current_version: 1,
+      },
+      drafts: [],
+      references: found.references || [],
+      documents: [],
+      attachments: found.attachments || [],
+      assignments: found.assignments || [],
+      research: found.research || [],
+      versions: found.versions || [],
+      reviews: found.reviews || [],
+      approvals: found.approvals || [],
+      publication: found.publication || null,
+    });
   }
 
   // 21. Fatwa Categories (/api/fatwa/categories) -> Returns Array directly!
@@ -370,7 +584,50 @@ export async function handleClientFallback(url: string, options: RequestInit = {
 
   // 29. Global Search (/api/search)
   if (pathname === '/api/search') {
-    return jsonResponse({ results: [] });
+    const q = (parsed.searchParams.get('q') || '').toLowerCase().trim();
+    const studentsList: any[] = Array.isArray(STATIC_STUDENTS) ? STATIC_STUDENTS : [];
+    const teachersList: any[] = Array.isArray(STATIC_TEACHERS) ? STATIC_TEACHERS : [];
+    const booksList: any[] = Array.isArray(STATIC_LOOKUPS?.books) ? STATIC_LOOKUPS.books : [];
+    const researchList: any[] = Array.isArray(STATIC_RESEARCH?.topics) ? STATIC_RESEARCH.topics : [];
+
+    const matchedStudents = q
+      ? studentsList.filter((s) => (s.full_name || '').toLowerCase().includes(q) || (s.full_name_ur || '').includes(q) || (s.student_code || '').toLowerCase().includes(q)).slice(0, 6)
+      : studentsList.slice(0, 6);
+
+    const matchedTeachers = q
+      ? teachersList.filter((t) => (t.full_name || '').toLowerCase().includes(q) || (t.full_name_ur || '').includes(q) || (t.teacher_code || '').toLowerCase().includes(q)).slice(0, 5)
+      : teachersList.slice(0, 5);
+
+    const matchedBooks = q
+      ? booksList.filter((b) => (b.title_en || '').toLowerCase().includes(q) || (b.title_ur || '').includes(q) || (b.author || '').includes(q)).slice(0, 5)
+      : booksList.slice(0, 5);
+
+    return jsonResponse({
+      students: matchedStudents,
+      teachers: matchedTeachers,
+      books: matchedBooks,
+      research: researchList.slice(0, 5),
+    });
+  }
+
+  // 29b. Reference Search (/api/fatwa/references/search)
+  if (pathname === '/api/fatwa/references/search') {
+    return jsonResponse([]);
+  }
+
+  // 29c. Uploads (/api/uploads)
+  if (pathname === '/api/uploads' && method === 'POST') {
+    try {
+      const body = typeof options.body === 'string' ? JSON.parse(options.body) : {};
+      return jsonResponse({
+        fileName: body.fileName || 'document.png',
+        fileUrl: body.dataUrl || '/assets/placeholder.png',
+        mimeType: 'image/png',
+        size: 2048,
+      });
+    } catch {
+      return jsonResponse({ fileName: 'file.png', fileUrl: '/assets/placeholder.png', mimeType: 'image/png', size: 1024 });
+    }
   }
 
   // 30. All POST, PUT, DELETE operations succeed

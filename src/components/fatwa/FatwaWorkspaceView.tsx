@@ -141,8 +141,26 @@ export const FatwaWorkspaceView: React.FC<FatwaWorkspaceViewProps> = ({ fatwaId,
         apiFetch(`/api/fatwa/questions/${fatwaId}`, {}, user),
         apiFetch('/api/fatwa/lookups', {}, user),
       ]);
-      setData(ws);
-      setLookups(lkp);
+      const normalizedWs = {
+        question: ws.question || ws,
+        draft: ws.draft || null,
+        drafts: Array.isArray(ws.drafts) ? ws.drafts : [],
+        references: Array.isArray(ws.references) ? ws.references : [],
+        documents: Array.isArray(ws.documents) ? ws.documents : [],
+        attachments: Array.isArray(ws.attachments) ? ws.attachments : [],
+        assignments: Array.isArray(ws.assignments) ? ws.assignments : [],
+        research: Array.isArray(ws.research) ? ws.research : [],
+        versions: Array.isArray(ws.versions) ? ws.versions : [],
+        reviews: Array.isArray(ws.reviews) ? ws.reviews : [],
+        approvals: Array.isArray(ws.approvals) ? ws.approvals : [],
+        publication: ws.publication || null,
+      };
+      setData(normalizedWs);
+      setLookups({
+        categories: Array.isArray(lkp?.categories) ? lkp.categories : [],
+        assignees: Array.isArray(lkp?.assignees) ? lkp.assignees : [],
+        ...(lkp || {}),
+      });
 
       draftLoadedRef.current = false;
       setDraftTitle(ws.draft?.draft_title || ws.question.subject_title_ur || ws.question.subject_title || '');

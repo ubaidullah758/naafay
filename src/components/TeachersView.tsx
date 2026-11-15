@@ -93,11 +93,18 @@ export const TeachersView: React.FC<TeachersViewProps> = ({ initialTeacherId }) 
         apiFetch('/api/lookups', {}, user),
         apiFetch(`/api/schedule${sp.toString() ? `?${sp.toString()}` : ''}`, {}, user),
       ]);
-      setTeachers(tRes);
-      setLookups(lkp);
-      setSchedule(scRes);
-      if (tRes?.[0]?.id && !schedForm.teacher_id) {
-        setSchedForm((sf) => ({ ...sf, teacher_id: tRes[0].id }));
+      const safeTeachers = Array.isArray(tRes) ? tRes : Array.isArray(tRes?.teachers) ? tRes.teachers : [];
+      setTeachers(safeTeachers);
+      setLookups({
+        classes: Array.isArray(lkp?.classes) ? lkp.classes : [],
+        subjects: Array.isArray(lkp?.subjects) ? lkp.subjects : [],
+        books: Array.isArray(lkp?.books) ? lkp.books : [],
+        sessions: Array.isArray(lkp?.sessions) ? lkp.sessions : [],
+        ...(lkp || {}),
+      });
+      setSchedule(Array.isArray(scRes) ? scRes : []);
+      if (safeTeachers?.[0]?.id && !schedForm.teacher_id) {
+        setSchedForm((sf) => ({ ...sf, teacher_id: safeTeachers[0].id }));
       }
     } catch (err: any) {
       setError(err?.message || 'Failed to load teachers');
@@ -115,7 +122,26 @@ export const TeachersView: React.FC<TeachersViewProps> = ({ initialTeacherId }) 
       setProfile(null);
       return;
     }
-    apiFetch(`/api/teachers/${selectedId}`, {}, user).then(setProfile);
+    apiFetch(`/api/teachers/${selectedId}`, {}, user)
+      .then((res) => {
+        if (!res) return;
+        const teacherObj = res.teacher || (res.id ? res : null);
+        setProfile({
+          teacher: teacherObj,
+          assignments: Array.isArray(res.assignments) ? res.assignments : [],
+          supervisedStudents: Array.isArray(res.supervisedStudents) ? res.supervisedStudents : [],
+          lessons: Array.isArray(res.lessons) ? res.lessons : [],
+          studyReviews: Array.isArray(res.studyReviews) ? res.studyReviews : [],
+          researchSupervisions: Array.isArray(res.researchSupervisions) ? res.researchSupervisions : [],
+          performance: res.performance || {
+            supervisedStudentCount: (res.supervisedStudents || []).length,
+            totalLessons: (res.lessons || []).length,
+            totalStudyReviews: (res.studyReviews || []).length,
+            researchCount: (res.researchSupervisions || []).length,
+          },
+        });
+      })
+      .catch((err) => console.error('Failed to load teacher profile', err));
   }, [selectedId]);
 
   const openAdd = () => {
@@ -253,7 +279,17 @@ export const TeachersView: React.FC<TeachersViewProps> = ({ initialTeacherId }) 
   }
 
   if (selectedId && profile) {
-    const tc = profile.teacher;
+    const tc = profile.teacher || {};
+    const performance = profile.performance || {
+      supervisedStudentCount: (profile.supervisedStudents || []).length,
+      totalLessons: (profile.lessons || []).length,
+      totalStudyReviews: (profile.studyReviews || []).length,
+    };
+    const assignments: any[] = Array.isArray(profile.assignments) ? profile.assignments : [];
+    const supervisedStudents: any[] = Array.isArray(profile.supervisedStudents) ? profile.supervisedStudents : [];
+    const lessons: any[] = Array.isArray(profile.lessons) ? profile.lessons : [];
+    const studyReviews: any[] = Array.isArray(profile.studyReviews) ? profile.studyReviews : [];
+
     return (
       <div className="space-y-5">
         <div className="flex items-center justify-between">
@@ -297,15 +333,15 @@ export const TeachersView: React.FC<TeachersViewProps> = ({ initialTeacherId }) 
           <div className="grid grid-cols-3 gap-5 text-xs tabular-nums border-t sm:border-t-0 pt-3 sm:pt-0 border-[#E5ECE8]">
             <div>
               <div className="text-[#5A6D65]">{t('supervisedStudents')}</div>
-              <div className="text-lg font-bold text-[#065F46]">{profile.performance.supervisedStudentCount}</div>
+              <div className="text-lg font-bold text-[#065F46]">{performance.supervisedStudentCount}</div>
             </div>
             <div>
               <div className="text-[#5A6D65]">{t('teacherLessons')}</div>
-              <div className="text-lg font-bold text-[#111C18]">{profile.performance.totalLessons}</div>
+              <div className="text-lg font-bold text-[#111C18]">{performance.totalLessons}</div>
             </div>
             <div>
               <div className="text-[#5A6D65]">{t('teacherReviews')}</div>
-              <div className="text-lg font-bold text-[#111C18]">{profile.performance.totalStudyReviews}</div>
+              <div className="text-lg font-bold text-[#111C18]">{performance.totalStudyReviews}</div>
             </div>
           </div>
         </div>
@@ -317,7 +353,7 @@ export const TeachersView: React.FC<TeachersViewProps> = ({ initialTeacherId }) 
               {lang === 'ur' ? 'متعلقہ کلاس، مضمون اور شیڈول' : 'Assigned Classes, Subjects & Schedule'}
             </h3>
             <div className="divide-y divide-[#EEF2F0] text-xs">
-              {profile.assignments.map((a: any) => (
+              {assignments.map((a: any) => (
                 <div key={a.id} className="py-3 flex items-start justify-between gap-3">
                   <div className="space-y-1">
                     <div className="text-[#111C18]">
@@ -359,7 +395,7 @@ export const TeachersView: React.FC<TeachersViewProps> = ({ initialTeacherId }) 
           <div className="rounded-lg border border-[#DCE4E0] bg-white p-5">
             <h3 className="text-sm text-[#111C18] pb-3 border-b border-[#EEF2F0]">{t('supervisedStudents')}</h3>
             <div className="divide-y divide-[#EEF2F0] text-xs">
-              {profile.supervisedStudents.map((st: any) => (
+              {supervisedStudents.map((st: any) => (
                 <div key={st.id} className="py-2.5 flex items-center justify-between">
                   <span className="text-[#111C18]">{pick(st.full_name, st.full_name_ur)}</span>
                   <span className="font-mono-code text-[#065F46]">{st.student_code}</span>
@@ -372,10 +408,10 @@ export const TeachersView: React.FC<TeachersViewProps> = ({ initialTeacherId }) 
           <div className="rounded-lg border border-[#DCE4E0] bg-white p-5">
             <h3 className="text-sm text-[#111C18] pb-3 border-b border-[#EEF2F0]">{t('teacherLessons')}</h3>
             <div className="divide-y divide-[#EEF2F0] text-xs">
-              {profile.lessons.length === 0 ? (
+              {lessons.length === 0 ? (
                 <p className="py-6 text-center text-[#5A6D65]">{t('noData')}</p>
               ) : (
-                profile.lessons.map((l: any) => (
+                lessons.map((l: any) => (
                   <div key={l.id} className="py-2.5 flex items-center justify-between gap-2">
                     <div>
                       <div className="text-[#111C18]">{pick(l.book_title_en, l.book_title_ur)}</div>
@@ -392,10 +428,10 @@ export const TeachersView: React.FC<TeachersViewProps> = ({ initialTeacherId }) 
           <div className="rounded-lg border border-[#DCE4E0] bg-white p-5">
             <h3 className="text-sm text-[#111C18] pb-3 border-b border-[#EEF2F0]">{t('teacherReviews')}</h3>
             <div className="divide-y divide-[#EEF2F0] text-xs">
-              {profile.studyReviews.length === 0 ? (
+              {studyReviews.length === 0 ? (
                 <p className="py-6 text-center text-[#5A6D65]">{t('noData')}</p>
               ) : (
-                profile.studyReviews.map((sr: any) => (
+                studyReviews.map((sr: any) => (
                   <div key={sr.id} className="py-2.5 space-y-1">
                     <div className="flex items-center justify-between">
                       <span className="text-[#111C18]">{pick(sr.student_name, sr.student_name_ur)}</span>

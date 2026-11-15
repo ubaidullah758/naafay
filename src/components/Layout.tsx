@@ -401,12 +401,12 @@ export const Layout: React.FC<LayoutProps> = ({ activeSection, onNavigate, onOpe
                 {searching && <div className="p-3 text-xs text-[#486581]">{t('loading')}</div>}
                 {!searching &&
                   (searchResults.fatwas?.length || 0) === 0 &&
-                  searchResults.students.length === 0 &&
-                  searchResults.teachers.length === 0 && (
+                  (searchResults.students?.length || 0) === 0 &&
+                  (searchResults.teachers?.length || 0) === 0 && (
                     <div className="p-4 text-xs text-[#486581] text-center">{t('noSearchResults')}</div>
                   )}
 
-                {searchResults.fatwas?.length > 0 && (
+                {(searchResults.fatwas?.length || 0) > 0 && (
                   <div className="p-2">
                     <div className="px-2 py-1 text-[11px] font-semibold text-[#0B2545]">{t('navFatwaQuestions')}</div>
                     {searchResults.fatwas.map((fq: any) => (
@@ -427,7 +427,7 @@ export const Layout: React.FC<LayoutProps> = ({ activeSection, onNavigate, onOpe
                   </div>
                 )}
 
-                {searchResults.students.length > 0 && (
+                {(searchResults.students?.length || 0) > 0 && (
                   <div className="p-2">
                     <div className="px-2 py-1 text-[11px] font-semibold text-[#486581]">{t('navStudents')}</div>
                     {searchResults.students.map((st: any) => (
@@ -448,7 +448,7 @@ export const Layout: React.FC<LayoutProps> = ({ activeSection, onNavigate, onOpe
                   </div>
                 )}
 
-                {searchResults.teachers.length > 0 && (
+                {(searchResults.teachers?.length || 0) > 0 && (
                   <div className="p-2">
                     <div className="px-2 py-1 text-[11px] font-semibold text-[#486581]">{t('navTeachers')}</div>
                     {searchResults.teachers.map((tc: any) => (

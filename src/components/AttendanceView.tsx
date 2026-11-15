@@ -1075,7 +1075,7 @@ export const AttendanceView: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#EEF2F0]">
-              {reports.corrections.length === 0 ? (
+              {(!reports.corrections || reports.corrections.length === 0) ? (
                 <tr><td colSpan={6} className="py-10 text-center text-[#5A6D65]">{t('noData')}</td></tr>
               ) : (
                 reports.corrections.map((c: any) => (

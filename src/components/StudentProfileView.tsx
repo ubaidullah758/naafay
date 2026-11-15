@@ -51,7 +51,24 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({
     setError(null);
     try {
       const res = await apiFetch(`/api/students/${studentId}`, {}, user);
-      setProfile(res);
+      const studentObj = res?.student || (res?.id ? res : null);
+      if (!studentObj) {
+        throw new Error('Student record not found');
+      }
+      setProfile({
+        student: studentObj,
+        guardians: Array.isArray(res?.guardians) ? res.guardians : [],
+        attendance: Array.isArray(res?.attendance) ? res.attendance : [],
+        mutala: Array.isArray(res?.mutala) ? res.mutala : [],
+        lessons: Array.isArray(res?.lessons) ? res.lessons : [],
+        exams: Array.isArray(res?.exams) ? res.exams : [],
+        results: Array.isArray(res?.results) ? res.results : [],
+        research: Array.isArray(res?.research) ? res.research : [],
+        documents: Array.isArray(res?.documents) ? res.documents : [],
+        monthlyReports: Array.isArray(res?.monthlyReports) ? res.monthlyReports : [],
+        activityHistory: Array.isArray(res?.activityHistory) ? res.activityHistory : [],
+        enrolledSubjects: Array.isArray(res?.enrolledSubjects) ? res.enrolledSubjects : [],
+      });
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -106,9 +123,21 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({
     return <ErrorState message={error || t('errorLoad')} onRetry={load} />;
   }
 
-  const st = profile.student;
-  const attTotal = profile.attendance.length;
-  const attPresent = profile.attendance.filter((a: any) => a.status === 'present' || a.status === 'late').length;
+  const st = profile.student || {};
+  const attendance: any[] = Array.isArray(profile.attendance) ? profile.attendance : [];
+  const mutala: any[] = Array.isArray(profile.mutala) ? profile.mutala : [];
+  const lessons: any[] = Array.isArray(profile.lessons) ? profile.lessons : [];
+  const exams: any[] = Array.isArray(profile.exams) ? profile.exams : [];
+  const results: any[] = Array.isArray(profile.results) ? profile.results : [];
+  const research: any[] = Array.isArray(profile.research) ? profile.research : [];
+  const documents: any[] = Array.isArray(profile.documents) ? profile.documents : [];
+  const monthlyReports: any[] = Array.isArray(profile.monthlyReports) ? profile.monthlyReports : [];
+  const activityHistory: any[] = Array.isArray(profile.activityHistory) ? profile.activityHistory : [];
+  const enrolledSubjects: any[] = Array.isArray(profile.enrolledSubjects) ? profile.enrolledSubjects : [];
+  const guardians: any[] = Array.isArray(profile.guardians) ? profile.guardians : [];
+
+  const attTotal = attendance.length;
+  const attPresent = attendance.filter((a: any) => a.status === 'present' || a.status === 'late').length;
   const attPct = attTotal > 0 ? Math.round((attPresent / attTotal) * 100) : 0;
 
   const tabs: Array<{ id: ProfileTab; label: string }> = [
@@ -194,11 +223,11 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({
           </div>
           <div>
             <div className="text-[#5A6D65]">{t('tabMutala')}</div>
-            <div className="mt-0.5 text-lg font-bold text-[#111C18]">{profile.mutala.length}</div>
+            <div className="mt-0.5 text-lg font-bold text-[#111C18]">{mutala.length}</div>
           </div>
           <div>
             <div className="text-[#5A6D65]">{t('tabResults')}</div>
-            <div className="mt-0.5 text-lg font-bold text-[#111C18]">{profile.results.length}</div>
+            <div className="mt-0.5 text-lg font-bold text-[#111C18]">{results.length}</div>
           </div>
         </div>
       </div>
@@ -229,12 +258,12 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({
       {/* Tab Content */}
       <div className="rounded-lg border border-[#DCE4E0] bg-white p-5 print-container">
         {tab === 'overview' && (() => {
-          const subjects: any[] = profile.enrolledSubjects || [];
+          const subjects: any[] = enrolledSubjects;
           const uniqueSubjects = Array.from(
             new Map(subjects.map((s: any) => [s.subject_id, s])).values()
           ) as any[];
           const recentAttendance = Object.values(
-            (profile.attendance || []).reduce((acc: Record<string, any>, a: any) => {
+            attendance.reduce((acc: Record<string, any>, a: any) => {
               if (!acc[a.attendance_date]) {
                 acc[a.attendance_date] = { date: a.attendance_date, sessions: {} };
               }
@@ -256,10 +285,10 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({
             <div className="space-y-5">
               <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
                 {stat(t('attendancePct'), `${attPct}%`)}
-                {stat(t('tabMutala'), profile.mutala.length, 'text-[#0B2545]')}
-                {stat(lang === 'ur' ? 'اسباق' : 'Lessons', profile.lessons.length, 'text-[#0B2545]')}
-                {stat(t('tabResults'), profile.results.length, 'text-[#0B2545]')}
-                {stat(t('tabResearch'), profile.research.length, 'text-[#0B2545]')}
+                {stat(t('tabMutala'), mutala.length, 'text-[#0B2545]')}
+                {stat(lang === 'ur' ? 'اسباق' : 'Lessons', lessons.length, 'text-[#0B2545]')}
+                {stat(t('tabResults'), results.length, 'text-[#0B2545]')}
+                {stat(t('tabResearch'), research.length, 'text-[#0B2545]')}
                 {stat(lang === 'ur' ? 'مضامین' : 'Subjects', uniqueSubjects.length, 'text-[#0B2545]')}
               </div>
 
@@ -348,10 +377,10 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-[#EEF2F0]">
-                        {profile.mutala.length === 0 ? (
+                        {mutala.length === 0 ? (
                           <tr><td colSpan={4} className="py-8 text-center text-[#5A6D65]">{t('noData')}</td></tr>
                         ) : (
-                          profile.mutala.slice(0, 6).map((m: any) => (
+                          mutala.slice(0, 6).map((m: any) => (
                             <tr key={m.id}>
                               <td className="px-3 py-2.5 font-mono-code tabular-nums whitespace-nowrap">{m.study_date}</td>
                               <td className="px-3 py-2.5">{pick(m.book_title_en, m.book_title_ur)}</td>
@@ -378,10 +407,10 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-[#EEF2F0]">
-                        {profile.lessons.length === 0 ? (
+                        {lessons.length === 0 ? (
                           <tr><td colSpan={4} className="py-8 text-center text-[#5A6D65]">{t('noData')}</td></tr>
                         ) : (
-                          profile.lessons.slice(0, 6).map((l: any) => (
+                          lessons.slice(0, 6).map((l: any) => (
                             <tr key={l.id}>
                               <td className="px-3 py-2.5 font-mono-code tabular-nums whitespace-nowrap">{l.lesson_date}</td>
                               <td className="px-3 py-2.5">{pick(l.subject_name_en, l.subject_name_ur)}</td>
@@ -408,10 +437,10 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-[#EEF2F0]">
-                        {profile.results.length === 0 ? (
+                        {results.length === 0 ? (
                           <tr><td colSpan={4} className="py-8 text-center text-[#5A6D65]">{t('noData')}</td></tr>
                         ) : (
-                          profile.results.slice(0, 6).map((r: any) => (
+                          results.slice(0, 6).map((r: any) => (
                             <tr key={r.id}>
                               <td className="px-3 py-2.5">{pick(r.exam_title_en, r.exam_title_ur)}</td>
                               <td className="px-3 py-2.5">{pick(r.subject_name_en, r.subject_name_ur)}</td>
@@ -444,10 +473,10 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#EEF2F0]">
-                  {(profile.enrolledSubjects || []).length === 0 ? (
+                  {enrolledSubjects.length === 0 ? (
                     <tr><td colSpan={5} className="py-8 text-center text-[#5A6D65]">{t('noData')}</td></tr>
                   ) : (
-                    (profile.enrolledSubjects || []).map((s: any, idx: number) => (
+                    enrolledSubjects.map((s: any, idx: number) => (
                       <tr key={`${s.subject_id}-${s.book_id || idx}`}>
                         <td className="py-2.5 font-mono-code font-semibold text-[#065F46] whitespace-nowrap">{s.subject_code}</td>
                         <td className="py-2.5 font-medium">{pick(s.subject_name_en, s.subject_name_ur)}</td>
@@ -503,7 +532,7 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({
                 <dd className="col-span-2 text-[#111C18]">{pick(st.year_title_en, st.year_title_ur)}</dd>
                 <dt className="text-[#5A6D65]">{t('classLabel')}</dt>
                 <dd className="col-span-2 text-[#111C18]">{pick(st.class_name_en, st.class_name_ur)}</dd>
-                {profile.guardians.map((g: any) => (
+                {guardians.map((g: any) => (
                   <React.Fragment key={g.id}>
                     <dt className="text-[#5A6D65]">{t('guardianName')}</dt>
                     <dd className="col-span-2 text-[#111C18]">{pick(g.full_name, g.full_name_ur)}</dd>
@@ -518,7 +547,7 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({
 
         {tab === 'attendance' && (() => {
           const groupedByDate = Object.values(
-            (profile.attendance || []).reduce((acc: Record<string, any>, a: any) => {
+            attendance.reduce((acc: Record<string, any>, a: any) => {
               if (!acc[a.attendance_date]) {
                 acc[a.attendance_date] = { date: a.attendance_date, sessions: {}, remarks: [] as string[] };
               }
@@ -579,10 +608,10 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({
 
         {tab === 'mutala' && (
           <div className="space-y-3">
-            {profile.mutala.length === 0 ? (
+            {mutala.length === 0 ? (
               <p className="py-8 text-center text-xs text-[#5A6D65]">{t('noData')}</p>
             ) : (
-              profile.mutala.map((m: any) => (
+              mutala.map((m: any) => (
                 <div key={m.id} className="rounded-md border border-[#E5ECE8] p-4 space-y-2">
                   <div className="flex items-center justify-between gap-3 flex-wrap">
                     <div className="text-sm font-semibold text-[#111C18]">
@@ -621,10 +650,10 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#EEF2F0]">
-                {profile.lessons.length === 0 ? (
+                {lessons.length === 0 ? (
                   <tr><td colSpan={5} className="py-8 text-center text-[#5A6D65]">{t('noData')}</td></tr>
                 ) : (
-                  profile.lessons.map((l: any) => (
+                  lessons.map((l: any) => (
                     <tr key={l.id}>
                       <td className="py-2.5 font-mono-code tabular-nums">{l.lesson_date}</td>
                       <td className="py-2.5 font-medium">{pick(l.book_title_en, l.book_title_ur)}</td>
@@ -651,10 +680,10 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#EEF2F0]">
-                {profile.exams.length === 0 ? (
+                {exams.length === 0 ? (
                   <tr><td colSpan={4} className="py-8 text-center text-[#5A6D65]">{t('noData')}</td></tr>
                 ) : (
-                  profile.exams.map((ex: any) => (
+                  exams.map((ex: any) => (
                     <tr key={ex.id}>
                       <td className="py-2.5 font-medium">{pick(ex.title_en, ex.title_ur)}</td>
                       <td className="py-2.5 font-mono-code tabular-nums">{ex.start_date}</td>
@@ -694,10 +723,10 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#EEF2F0]">
-                  {profile.results.length === 0 ? (
+                  {results.length === 0 ? (
                     <tr><td colSpan={6} className="py-8 text-center text-[#5A6D65]">{t('noData')}</td></tr>
                   ) : (
-                    profile.results.map((r: any) => (
+                    results.map((r: any) => (
                       <tr key={r.id}>
                         <td className="py-2.5">{pick(r.exam_title_en, r.exam_title_ur)}</td>
                         <td className="py-2.5 font-medium">{pick(r.subject_name_en, r.subject_name_ur)}</td>
@@ -716,10 +745,10 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({
 
         {tab === 'research' && (
           <div className="space-y-4">
-            {profile.research.length === 0 ? (
+            {research.length === 0 ? (
               <p className="py-8 text-center text-xs text-[#5A6D65]">{t('noData')}</p>
             ) : (
-              profile.research.map((ra: any) => (
+              research.map((ra: any) => (
                 <div key={ra.id} className="rounded-md border border-[#E5ECE8] p-4 space-y-2">
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <h4 className="text-sm font-semibold text-[#111C18]">{pick(ra.title_en, ra.title_ur)}</h4>
@@ -776,10 +805,10 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({
             )}
 
             <div className="divide-y divide-[#EEF2F0]">
-              {profile.documents.length === 0 ? (
+              {documents.length === 0 ? (
                 <p className="py-8 text-center text-xs text-[#5A6D65]">{t('noData')}</p>
               ) : (
-                profile.documents.map((doc: any) => (
+                documents.map((doc: any) => (
                   <div key={doc.id} className="py-3 flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
                       <FileText className="h-4 w-4 text-[#065F46] shrink-0" />
@@ -830,10 +859,10 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#EEF2F0]">
-                {profile.monthlyReports.length === 0 ? (
+                {monthlyReports.length === 0 ? (
                   <tr><td colSpan={6} className="py-8 text-center text-[#5A6D65]">{t('noData')}</td></tr>
                 ) : (
-                  profile.monthlyReports.map((mr: any) => {
+                  monthlyReports.map((mr: any) => {
                     const pct = mr.attTotal > 0 ? Math.round((mr.attPresent / mr.attTotal) * 100) : 0;
                     return (
                       <tr key={mr.month}>
@@ -854,10 +883,10 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({
 
         {tab === 'history' && (
           <div className="divide-y divide-[#EEF2F0]">
-            {profile.activityHistory.length === 0 ? (
+            {activityHistory.length === 0 ? (
               <p className="py-8 text-center text-xs text-[#5A6D65]">{t('noData')}</p>
             ) : (
-              profile.activityHistory.map((h: any) => (
+              activityHistory.map((h: any) => (
                 <div key={h.id} className="py-3 flex items-center justify-between gap-4 text-xs">
                   <div>
                     <span className="text-[#111C18]">{formatActivityAction(h.action, lang)}</span>
