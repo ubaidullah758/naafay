@@ -793,13 +793,29 @@ export async function handleClientFallback(url: string, options: RequestInit = {
 
   // 16. Admin Login (/api/admin/login)
   if (pathname === '/api/admin/login' && method === 'POST') {
+    const b = body || {};
+    const email = String(b.email || '').trim().toLowerCase();
+    const accessCode = String(b.accessCode || b.password || '').trim();
+
+    const allowedCodes = ['naafay2026', 'naafay123', 'naafay123456', 'admin123', '123456', 'admin'];
+    if (accessCode && !allowedCodes.includes(accessCode) && accessCode.length < 4) {
+      return jsonResponse({
+        error: 'Invalid admin access code',
+        error_ur: 'ایڈمن کا خفیہ کوڈ درست نہیں ہے (ڈیفالٹ: naafay2026)',
+      }, 401);
+    }
+
     return jsonResponse({
+      authenticated: true,
       token: 'jwt-mock-admin-token',
       user: {
-        role: 'admin',
         profileId: 'prof-admin',
+        role: 'admin',
+        nameEn: 'Mufti Waris Naseeb',
+        nameUr: 'مفتی وارث نصیب',
         name: 'ناظمِ دارالافتاء (ایڈمن)',
         fullNameUr: 'مفتی وارث نصیب',
+        email: email || 'nazim@naafay.edu.pk',
       },
     });
   }

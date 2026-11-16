@@ -132,9 +132,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, accessCode }),
     });
-    const json = await res.json();
+    let json: any = null;
+    try {
+      json = await res.json();
+    } catch {
+      // response wasn't valid JSON
+    }
     if (!res.ok) {
-      throw new Error(json.error_ur || json.error || 'Admin login failed');
+      throw new Error(json?.error_ur || json?.error || 'ایڈمن لاگ ان ناکام رہا / Admin login failed');
+    }
+    if (!json?.user) {
+      throw new Error('ایڈمن پروفائل موصول نہیں ہوا');
     }
     setUser(json.user);
     localStorage.setItem('naafay_active_role', 'admin');
@@ -148,11 +156,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ mobile: mobileOrCode, studentCode: mobileOrCode, pin }),
     });
-    const json = await res.json();
-    if (!res.ok) {
-      throw new Error(json.error_ur || json.error || 'Student login failed');
+    let json: any = null;
+    try {
+      json = await res.json();
+    } catch {
+      // response wasn't valid JSON
     }
-    const stuUser: ActiveUser = json.user;
+    if (!res.ok) {
+      throw new Error(json?.error_ur || json?.error || 'طالب علم کا لاگ ان ناکام رہا / Student login failed');
+    }
+    const stuUser: ActiveUser = json?.user;
+    if (!stuUser) {
+      throw new Error('طالب علم کا ڈیٹا موصول نہیں ہوا');
+    }
     setUser(stuUser);
     localStorage.setItem('naafay_active_role', 'student');
     localStorage.setItem('naafay_active_student_user', JSON.stringify(stuUser));
@@ -166,11 +182,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ teacherCode, pin }),
     });
-    const json = await res.json();
-    if (!res.ok) {
-      throw new Error(json.error_ur || json.error || 'Teacher login failed');
+    let json: any = null;
+    try {
+      json = await res.json();
+    } catch {
+      // response wasn't valid JSON
     }
-    const tchUser: ActiveUser = json.user;
+    if (!res.ok) {
+      throw new Error(json?.error_ur || json?.error || 'استاذ کا لاگ ان ناکام رہا / Teacher login failed');
+    }
+    const tchUser: ActiveUser = json?.user;
+    if (!tchUser) {
+      throw new Error('استاذ کا ڈیٹا موصول نہیں ہوا');
+    }
     setUser(tchUser);
     localStorage.setItem('naafay_active_role', tchUser.role);
     localStorage.setItem('naafay_active_teacher_user', JSON.stringify(tchUser));
