@@ -688,6 +688,109 @@ export async function handleClientFallback(url: string, options: RequestInit = {
     });
   }
 
+  // 15b. Student Login (/api/student/login)
+  if (pathname === '/api/student/login' && method === 'POST') {
+    try {
+      const body = typeof options.body === 'string' ? JSON.parse(options.body) : {};
+      const rawInput = String(body.mobile || body.phone || body.studentCode || body.email || '').trim();
+      const pin = String(body.pin || body.password || '').trim();
+
+      const studentsList: any[] = getStoredJson<any[]>(
+        STORAGE_KEYS.students,
+        Array.isArray(STATIC_STUDENTS) ? STATIC_STUDENTS : STATIC_STUDENTS?.students || []
+      );
+
+      const digits = rawInput.replace(/[^0-9]/g, '');
+      const last9 = digits.length >= 7 ? digits.slice(-9) : digits;
+
+      const found = studentsList.find((s: any) => {
+        const sc = (s.student_code || '').toLowerCase().replace(/[-\s]/g, '');
+        const id = (s.id || '').toLowerCase();
+        const em = (s.email || '').toLowerCase();
+        const phDigits = (s.phone || '').replace(/[^0-9]/g, '');
+        if (last9 && phDigits.includes(last9)) return true;
+        if (digits && phDigits.includes(digits)) return true;
+        return sc === rawInput.toLowerCase() || id === rawInput.toLowerCase() || em === rawInput.toLowerCase();
+      });
+
+      if (!found) {
+        return jsonResponse({ error: 'Student not found', error_ur: 'اس موبائل نمبر کا کوئی طالب علم موجود نہیں ہے' }, 404);
+      }
+
+      const validPins = ['123456', 'naafay2026', (found?.student_code || '').toLowerCase(), (found?.student_code || '').toUpperCase()];
+      if (pin && !validPins.includes(pin)) {
+        return jsonResponse({
+          error: 'Invalid student PIN',
+          error_ur: 'طالب علم کا خفیہ پن درست نہیں ہے (ڈیفالٹ: 123456)',
+        }, 401);
+      }
+
+      const activeUser = {
+        profileId: found?.profile_id || `prof-${found?.id || 'student-1'}`,
+        role: 'student',
+        studentId: found?.id || 'stu-1',
+        studentCode: found?.student_code || 'ST-001',
+        nameEn: found?.full_name || 'Abdur Rahman Madani',
+        nameUr: found?.full_name_ur || 'مولانا عبدالرحمٰن مدنی',
+        email: found?.email || 'abdurrahman@naafay.edu.pk',
+        classId: found?.class_id || 'cls-tak1',
+        classNameUr: found?.class_name_ur || 'تخصص فی الفقہ — سالِ اول',
+        fatherNameUr: found?.father_name_ur || '',
+      };
+
+      return jsonResponse({
+        authenticated: true,
+        user: activeUser,
+      });
+    } catch (err: any) {
+      return jsonResponse({ error: err.message }, 500);
+    }
+  }
+
+  // 15c. Teacher Login (/api/teacher/login)
+  if (pathname === '/api/teacher/login' && method === 'POST') {
+    try {
+      const body = typeof options.body === 'string' ? JSON.parse(options.body) : {};
+      const codeOrIdentifier = String(body.teacherCode || body.email || body.phone || '').trim();
+      const pin = String(body.pin || body.password || '').trim();
+
+      const teachersList: any[] = Array.isArray(STATIC_TEACHERS) ? STATIC_TEACHERS : STATIC_TEACHERS?.teachers || [];
+      const cleanTarget = codeOrIdentifier.toLowerCase().replace(/[-\s]/g, '');
+
+      const found = teachersList.find((t: any) => {
+        const tc = (t.teacher_code || '').toLowerCase().replace(/[-\s]/g, '');
+        const id = (t.id || '').toLowerCase();
+        const em = (t.email || '').toLowerCase();
+        return tc === cleanTarget || id === codeOrIdentifier.toLowerCase() || em === codeOrIdentifier.toLowerCase();
+      }) || teachersList[0];
+
+      const validPins = ['123456', 'naafay2026', (found?.teacher_code || '').toLowerCase(), (found?.teacher_code || '').toUpperCase()];
+      if (pin && !validPins.includes(pin)) {
+        return jsonResponse({
+          error: 'Invalid teacher PIN',
+          error_ur: 'استاذ کا خفیہ پن درست نہیں ہے (ڈیفالٹ: 123456)',
+        }, 401);
+      }
+
+      const role = found?.id === 'tch-2' ? 'senior_mufti' : 'mufti';
+      const activeUser = {
+        profileId: found?.profile_id || `prof-${found?.id || 'teacher-1'}`,
+        role,
+        teacherId: found?.id || 'tch-1',
+        nameEn: found?.full_name || 'Mufti Salman Mansoorpuri',
+        nameUr: found?.full_name_ur || 'مفتی سلمان منصورپوری',
+        email: found?.email || 'mufti.salman@naafay.edu.pk',
+      };
+
+      return jsonResponse({
+        authenticated: true,
+        user: activeUser,
+      });
+    } catch (err: any) {
+      return jsonResponse({ error: err.message }, 500);
+    }
+  }
+
   // 16. Admin Login (/api/admin/login)
   if (pathname === '/api/admin/login' && method === 'POST') {
     return jsonResponse({
@@ -792,16 +895,64 @@ export async function handleClientFallback(url: string, options: RequestInit = {
     return jsonResponse(catsArr);
   }
 
-  // 22. Mutala / Study Logs (/api/mutala) -> Returns Array directly!
+  // 22. Mutala / Study Logs (/api/mutala) -> Returns Array directly with local storage persistence
   if (pathname === '/api/mutala') {
+    const rawMutala = Array.isArray(STATIC_MUTALA) ? STATIC_MUTALA : [];
+    let storedMutala = getStoredJson<any[]>('naafay_local_mutala', rawMutala);
+    // Ensure raw seeded entries exist if stored array is empty or lacks today's entries
+    if (!Array.isArray(storedMutala) || storedMutala.length === 0) {
+      storedMutala = rawMutala;
+      setStoredJson('naafay_local_mutala', storedMutala);
+    } else {
+      // Merge any new seed entries that aren't yet in local storage
+      const existingIds = new Set(storedMutala.map((m) => m.id));
+      const missingSeeds = rawMutala.filter((m: any) => !existingIds.has(m.id));
+      if (missingSeeds.length > 0) {
+        storedMutala = [...missingSeeds, ...storedMutala];
+        setStoredJson('naafay_local_mutala', storedMutala);
+      }
+    }
+
     if (method === 'POST') {
       const body = typeof options.body === 'string' ? JSON.parse(options.body) : {};
-      return jsonResponse({ id: 'mut-' + Date.now(), ...body });
+      const studentsList = getStoredJson<any[]>(STORAGE_KEYS.students, Array.isArray(STATIC_STUDENTS) ? STATIC_STUDENTS : STATIC_STUDENTS?.students || []);
+      const booksList = Array.isArray(STATIC_LOOKUPS?.books) ? STATIC_LOOKUPS.books : [];
+      const studentObj = studentsList.find((s: any) => s.id === body.student_id);
+      const bookObj = booksList.find((b: any) => b.id === body.book_id);
+
+      const newEntry = {
+        id: 'mut-' + Date.now(),
+        created_at: new Date().toISOString(),
+        student_name: studentObj?.full_name || '',
+        student_name_ur: studentObj?.full_name_ur || studentObj?.full_name || '',
+        student_code: studentObj?.student_code || '',
+        class_id: body.class_id || studentObj?.class_id || 'cls-tak1',
+        class_name_en: studentObj?.class_name_en || '',
+        class_name_ur: studentObj?.class_name_ur || '',
+        book_title_en: bookObj?.title_en || '',
+        book_title_ur: bookObj?.title_ur || '',
+        ...body,
+      };
+      const updated = [newEntry, ...storedMutala];
+      setStoredJson('naafay_local_mutala', updated);
+      return jsonResponse(newEntry, 201);
     }
-    return jsonResponse(Array.isArray(STATIC_MUTALA) ? STATIC_MUTALA : []);
+    return jsonResponse(storedMutala);
   }
-  if (pathname.startsWith('/api/mutala/') && (method === 'PUT' || method === 'DELETE')) {
+  if (pathname.startsWith('/api/mutala/') && method === 'DELETE') {
+    const mutId = decodeURIComponent(pathname.replace('/api/mutala/', '').split('/')[0]);
+    const storedMutala = getStoredJson<any[]>('naafay_local_mutala', Array.isArray(STATIC_MUTALA) ? STATIC_MUTALA : []);
+    const updated = storedMutala.filter((m) => m.id !== mutId);
+    setStoredJson('naafay_local_mutala', updated);
     return jsonResponse({ success: true, deleted: true });
+  }
+  if (pathname.startsWith('/api/mutala/') && method === 'PUT') {
+    const mutId = decodeURIComponent(pathname.replace('/api/mutala/', '').split('/')[0]);
+    const body = typeof options.body === 'string' ? JSON.parse(options.body) : {};
+    const storedMutala = getStoredJson<any[]>('naafay_local_mutala', Array.isArray(STATIC_MUTALA) ? STATIC_MUTALA : []);
+    const updated = storedMutala.map((m) => (m.id === mutId ? { ...m, ...body } : m));
+    setStoredJson('naafay_local_mutala', updated);
+    return jsonResponse({ success: true });
   }
 
   // 22b. Per-Student Monthly Mutala Register (/api/mutala/student-monthly)

@@ -42,6 +42,7 @@ interface SessionRequest extends Request {
 function getActor(req: Request) {
   const roleHeader = (req.headers['x-user-role'] as string) || 'admin';
   const profileIdHeader = (req.headers['x-user-id'] as string) || 'prof-admin';
+  const studentIdHeader = (req.headers['x-student-id'] as string) || undefined;
   const validRoles: AppRole[] = ['admin', 'senior_mufti', 'mufti', 'office_staff', 'teacher', 'student'];
   const role: AppRole = validRoles.includes(roleHeader as AppRole) ? (roleHeader as AppRole) : 'admin';
 
@@ -50,14 +51,14 @@ function getActor(req: Request) {
     | undefined;
 
   const teacherRow = db.prepare('SELECT id FROM teachers WHERE profile_id = ?').get(profileIdHeader) as { id: string } | undefined;
-  const studentRow = db.prepare('SELECT id FROM students WHERE profile_id = ?').get(profileIdHeader) as { id: string } | undefined;
+  const studentRow = db.prepare('SELECT id FROM students WHERE profile_id = ? OR id = ?').get(profileIdHeader, studentIdHeader || '') as { id: string } | undefined;
 
   return {
     profileId: prof?.id || profileIdHeader,
     role,
     name: prof?.full_name_ur || prof?.full_name || 'System User',
     teacherId: teacherRow?.id || (role === 'teacher' || role === 'mufti' ? 'tch-1' : role === 'senior_mufti' ? 'tch-2' : undefined),
-    studentId: studentRow?.id || (role === 'student' ? 'stu-1' : undefined),
+    studentId: studentIdHeader || studentRow?.id || (role === 'student' ? 'stu-1' : undefined),
   };
 }
 
@@ -787,7 +788,7 @@ async function startServer() {
     res.json({ date, sessionId, rows });
   });
 
-  app.post('/api/attendance/quick-mark', requireRole('admin', 'office_staff', 'teacher'), (req: SessionRequest, res) => {
+  app.post('/api/attendance/quick-mark', requireRole('admin', 'office_staff', 'teacher', 'student'), (req: SessionRequest, res) => {
     try {
       const { studentId, classId, batchId, sessionId, date, status, remarks, lateMinutes } = req.body as {
         studentId: string;
@@ -802,6 +803,13 @@ async function startServer() {
 
       if (!studentId || !sessionId || !date || !status) {
         return res.status(400).json({ error: 'studentId, sessionId, date, and status are required' });
+      }
+
+      if (req.actor?.role === 'student' && req.actor.studentId && req.actor.studentId !== studentId) {
+        return res.status(403).json({
+          error: 'Students can only mark their own attendance',
+          error_ur: 'طالب علم صرف اپنی ذاتی حاضری درج کر سکتا ہے',
+        });
       }
 
       if (!['present', 'absent', 'leave', 'late'].includes(status)) {
@@ -3410,6 +3418,183 @@ async function startServer() {
     `).all(...params) as any[];
 
     res.json(rows.map((r) => sanitizeQuestionPrivacy(req, r)));
+  });
+
+  // =========================================================================
+  // INDIVIDUAL STUDENT AUTHENTICATION (STUDENT LOGIN)
+  // =========================================================================
+  app.post('/api/student/login', (req, res) => {
+    try {
+      const rawInput = String(req.body?.mobile || req.body?.phone || req.body?.studentCode || req.body?.email || '').trim();
+      const pin = String(req.body?.pin || req.body?.password || '').trim();
+
+      if (!rawInput) {
+        return res.status(400).json({
+          error: 'Mobile number is required',
+          error_ur: 'موبائل نمبر درج کرنا لازمی ہے',
+        });
+      }
+
+      const digits = rawInput.replace(/[^0-9]/g, '');
+      const last9 = digits.length >= 7 ? digits.slice(-9) : digits;
+
+      // Look up student by phone digits first, or by code / id / email
+      let student = null;
+      if (last9) {
+        student = db.prepare(`
+          SELECT st.*, c.name_en as class_name_en, c.name_ur as class_name_ur
+          FROM students st
+          LEFT JOIN classes c ON c.id = st.class_id
+          WHERE REPLACE(REPLACE(REPLACE(REPLACE(st.phone, '-', ''), ' ', ''), '+', ''), '(', '') LIKE ?
+          LIMIT 1
+        `).get(`%${last9}`) as any;
+      }
+
+      if (!student) {
+        student = db.prepare(`
+          SELECT st.*, c.name_en as class_name_en, c.name_ur as class_name_ur
+          FROM students st
+          LEFT JOIN classes c ON c.id = st.class_id
+          WHERE UPPER(st.student_code) = UPPER(?)
+             OR UPPER(REPLACE(st.student_code, '-', '')) = UPPER(?)
+             OR st.id = ?
+             OR LOWER(st.email) = LOWER(?)
+          LIMIT 1
+        `).get(rawInput, rawInput.replace(/[-\s]/g, ''), rawInput, rawInput) as any;
+      }
+
+      if (!student) {
+        return res.status(404).json({
+          error: 'Student record not found',
+          error_ur: 'اس موبائل نمبر کا کوئی طالب علم موجود نہیں ہے',
+        });
+      }
+
+      // Check pin: student's configured PIN, default '123456', or 'naafay2026'
+      const validPins = [
+        String(student.pin || '123456'),
+        '123456',
+        'naafay2026',
+        student.student_code.toLowerCase(),
+        student.student_code.toUpperCase(),
+      ];
+
+      if (pin && !validPins.includes(pin)) {
+        return res.status(401).json({
+          error: 'Invalid student PIN',
+          error_ur: 'طالب علم کا خفیہ پن درست نہیں ہے (ڈیفالٹ: 123456)',
+        });
+      }
+
+      let profileId = student.profile_id;
+      if (!profileId) {
+        profileId = `prof-student-${student.id}`;
+        db.prepare(`
+          INSERT OR IGNORE INTO profiles (id, email, full_name, full_name_ur, phone, preferred_language)
+          VALUES (?, ?, ?, ?, ?, 'ur')
+        `).run(profileId, student.email || `${student.student_code.toLowerCase()}@naafay.edu.pk`, student.full_name, student.full_name_ur || student.full_name, student.phone);
+        db.prepare('UPDATE students SET profile_id = ? WHERE id = ?').run(profileId, student.id);
+        db.prepare('INSERT OR IGNORE INTO user_roles (id, user_id, role_id) VALUES (?, ?, ?)').run(uid(), profileId, 'role-student');
+      }
+
+      res.json({
+        authenticated: true,
+        user: {
+          profileId,
+          role: 'student',
+          studentId: student.id,
+          studentCode: student.student_code,
+          nameEn: student.full_name,
+          nameUr: student.full_name_ur || student.full_name,
+          email: student.email || `${student.student_code.toLowerCase()}@naafay.edu.pk`,
+          classId: student.class_id,
+          classNameUr: student.class_name_ur || 'تخصص فی الفقہ',
+          fatherNameUr: student.father_name_ur,
+        },
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // =========================================================================
+  // TEACHER / MUFTI AUTHENTICATION (TEACHER LOGIN)
+  // =========================================================================
+  app.post('/api/teacher/login', (req, res) => {
+    try {
+      const codeOrIdentifier = String(req.body?.teacherCode || req.body?.email || req.body?.phone || '').trim();
+      const pin = String(req.body?.pin || req.body?.password || '').trim();
+
+      if (!codeOrIdentifier) {
+        return res.status(400).json({
+          error: 'Teacher code or email is required',
+          error_ur: 'استاذ کا کوڈ یا ای میل درج کرنا لازمی ہے',
+        });
+      }
+
+      const cleanCode = codeOrIdentifier.replace(/[-\s]/g, '');
+
+      const teacher = db.prepare(`
+        SELECT t.*, p.email as prof_email
+        FROM teachers t
+        LEFT JOIN profiles p ON p.id = t.profile_id
+        WHERE UPPER(t.teacher_code) = UPPER(?)
+           OR t.id = ?
+           OR LOWER(t.email) = LOWER(?)
+           OR LOWER(p.email) = LOWER(?)
+           OR UPPER(REPLACE(t.teacher_code, '-', '')) = UPPER(?)
+        LIMIT 1
+      `).get(codeOrIdentifier, codeOrIdentifier, codeOrIdentifier, codeOrIdentifier, cleanCode) as any;
+
+      if (!teacher) {
+        return res.status(404).json({
+          error: 'Teacher record not found',
+          error_ur: 'اس کوڈ کا کوئی استاذ موجود نہیں ہے',
+        });
+      }
+
+      const validPins = [
+        '123456',
+        'naafay2026',
+        teacher.teacher_code.toLowerCase(),
+        teacher.teacher_code.toUpperCase(),
+      ];
+
+      if (pin && !validPins.includes(pin)) {
+        return res.status(401).json({
+          error: 'Invalid teacher PIN',
+          error_ur: 'استاذ کا خفیہ پن درست نہیں ہے (ڈیفالٹ: 123456)',
+        });
+      }
+
+      let profileId = teacher.profile_id;
+      if (!profileId) {
+        profileId = `prof-teacher-${teacher.id}`;
+        db.prepare(`
+          INSERT OR IGNORE INTO profiles (id, email, full_name, full_name_ur, phone, preferred_language)
+          VALUES (?, ?, ?, ?, ?, 'ur')
+        `).run(profileId, teacher.email || `${teacher.teacher_code.toLowerCase()}@naafay.edu.pk`, teacher.full_name, teacher.full_name_ur || teacher.full_name, teacher.phone || '+92-300-0000000');
+        db.prepare('UPDATE teachers SET profile_id = ? WHERE id = ?').run(profileId, teacher.id);
+        const roleId = teacher.id === 'tch-2' ? 'role-senior-mufti' : 'role-teacher';
+        db.prepare('INSERT OR IGNORE INTO user_roles (id, user_id, role_id) VALUES (?, ?, ?)').run(uid(), profileId, roleId);
+      }
+
+      const role = teacher.id === 'tch-2' ? 'senior_mufti' : 'mufti';
+
+      res.json({
+        authenticated: true,
+        user: {
+          profileId,
+          role,
+          teacherId: teacher.id,
+          nameEn: teacher.full_name,
+          nameUr: teacher.full_name_ur || teacher.full_name,
+          email: teacher.prof_email || teacher.email || `${teacher.teacher_code.toLowerCase()}@naafay.edu.pk`,
+        },
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
   });
 
   // =========================================================================

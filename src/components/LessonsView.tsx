@@ -97,6 +97,9 @@ export const LessonsView: React.FC = () => {
       if (user?.teacherId) {
         setTeacherFilter(user.teacherId);
       }
+      if (user?.role === 'student' && user.classId) {
+        setClassFilter(user.classId);
+      }
     } catch (err: any) {
       setError(err?.message || 'Failed to load lessons');
     } finally {
@@ -126,9 +129,13 @@ export const LessonsView: React.FC = () => {
   const weekBounds = getWeekBounds(selectedDate);
 
   const filteredLessons = data.lessons.filter((l) => {
+    if (user?.role === 'student' && user.classId) {
+      if (l.class_id && l.class_id !== user.classId) return false;
+    } else {
+      if (classFilter && l.class_id !== classFilter) return false;
+    }
     if (teacherFilter && l.teacher_id !== teacherFilter) return false;
     if (bookFilter && l.book_id !== bookFilter) return false;
-    if (classFilter && l.class_id !== classFilter) return false;
 
     if (timeframe === 'daily') {
       return l.lesson_date === selectedDate;
@@ -358,7 +365,7 @@ export const LessonsView: React.FC = () => {
         </div>
 
         {/* Filters */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-2 border-t border-[#EEF2F0]">
+        <div className={`grid grid-cols-1 sm:grid-cols-2 ${user?.role === 'student' ? 'lg:grid-cols-3' : 'lg:grid-cols-4'} gap-2.5 pt-2 border-t border-[#EEF2F0]`}>
           <div>
             <label className="block text-[11px] font-medium text-[#5A6D65] mb-1 font-urdu">
               {lang === 'ur' ? 'استاد محترم' : 'Teacher'}
@@ -391,21 +398,23 @@ export const LessonsView: React.FC = () => {
             </select>
           </div>
 
-          <div>
-            <label className="block text-[11px] font-medium text-[#5A6D65] mb-1 font-urdu">
-              {lang === 'ur' ? 'درجہ' : 'Class'}
-            </label>
-            <select
-              value={classFilter}
-              onChange={(e) => setClassFilter(e.target.value)}
-              className="w-full rounded-lg border border-[#DCE4E0] px-2.5 py-1.5 text-xs bg-white font-urdu focus:ring-1 focus:ring-[#065F46]"
-            >
-              <option value="">{lang === 'ur' ? 'تمام درجات' : 'All Classes'}</option>
-              {lookups.classes.map((c: any) => (
-                <option key={c.id} value={c.id}>{pick(c.name_en, c.name_ur)}</option>
-              ))}
-            </select>
-          </div>
+          {user?.role !== 'student' && (
+            <div>
+              <label className="block text-[11px] font-medium text-[#5A6D65] mb-1 font-urdu">
+                {lang === 'ur' ? 'درجہ' : 'Class'}
+              </label>
+              <select
+                value={classFilter}
+                onChange={(e) => setClassFilter(e.target.value)}
+                className="w-full rounded-lg border border-[#DCE4E0] px-2.5 py-1.5 text-xs bg-white font-urdu focus:ring-1 focus:ring-[#065F46]"
+              >
+                <option value="">{lang === 'ur' ? 'تمام درجات' : 'All Classes'}</option>
+                {lookups.classes.map((c: any) => (
+                  <option key={c.id} value={c.id}>{pick(c.name_en, c.name_ur)}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div>
             <label className="block text-[11px] font-medium text-[#5A6D65] mb-1 font-urdu">

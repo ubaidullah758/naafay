@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Download, FileText, Edit3, Check, X, BookOpen, GraduationCap, CheckCircle2, AlertCircle, Plus, ChevronDown, Printer } from 'lucide-react';
+import { Download, FileText, Edit3, Check, X, BookOpen, GraduationCap, CheckCircle2, AlertCircle, Plus, ChevronDown, Printer, Clock, Sun, Moon } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import { apiFetch } from '../lib/api';
@@ -7,13 +7,16 @@ import { exportToExcel, exportToPdf } from '../lib/exports';
 import { currentMonthLocal, todayLocal, formatUrduFullDate, formatUrduMonth } from '../lib/date';
 import { ErrorState } from './ErrorState';
 import { StatusText } from './StatusText';
+import { Modal } from './Modal';
 
-type AttTab = 'mark' | 'daily' | 'monthly' | 'absent' | 'corrections';
+type AttTab = 'student_self' | 'mark' | 'daily' | 'monthly' | 'absent' | 'corrections';
 
 export const AttendanceView: React.FC = () => {
   const { lang, t, pick } = useLanguage();
   const { user, canMarkAttendance } = useAuth();
-  const [subTab, setSubTab] = useState<AttTab>(canMarkAttendance ? 'mark' : 'daily');
+  const [subTab, setSubTab] = useState<AttTab>(
+    user?.role === 'student' ? 'student_self' : canMarkAttendance ? 'mark' : 'daily'
+  );
   const [lookups, setLookups] = useState<any>({ sessions: [], classes: [], batches: [] });
 
   const [date, setDate] = useState(todayLocal);
@@ -24,8 +27,8 @@ export const AttendanceView: React.FC = () => {
   // Daily Mode: 1. Combined Summary & Review, 2. Attendance Register Sheet
   const [dailyViewMode, setDailyViewMode] = useState<'combined' | 'attendance_sheet'>('combined');
 
-  // Monthly Mode: 1. Individual 30-Day Register, 2. Overall Summary Table
-  const [monthlyViewMode, setMonthlyViewMode] = useState<'individual_register' | 'summary_table'>('individual_register');
+  // Monthly Mode: 1. Overall Summary Table, 2. Individual 30-Day Register
+  const [monthlyViewMode, setMonthlyViewMode] = useState<'summary_table' | 'individual_register'>('summary_table');
   const [selectedStudentId, setSelectedStudentId] = useState<string>('');
   const [studentMonthlyData, setStudentMonthlyData] = useState<any | null>(null);
   const [loadingStudentMonthly, setLoadingStudentMonthly] = useState<boolean>(false);
@@ -99,6 +102,68 @@ export const AttendanceView: React.FC = () => {
     return () => window.removeEventListener('click', close);
   }, [openCell]);
 
+  // Student Self-Service Attendance States
+  const [selfLateMin, setSelfLateMin] = useState<Record<string, number>>({});
+  const [selfReason, setSelfReason] = useState<Record<string, string>>({});
+  const [selfModal, setSelfModal] = useState<{
+    sessionId: string;
+    sessionTitle: string;
+    type: 'late' | 'leave';
+  } | null>(null);
+  const [customLateVal, setCustomLateVal] = useState('15');
+  const [leaveReasonVal, setLeaveReasonVal] = useState('');
+
+  const handleStudentSelfMark = async (
+    sessionId: string,
+    status: 'present' | 'absent' | 'leave' | 'late',
+    lateMin?: number,
+    reason?: string
+  ) => {
+    if (!user?.studentId) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const stuRow = rows.find((r) => r.student_id === user.studentId || r.student_code === user.studentCode) || rows[0];
+      const effClassId = user.classId || stuRow?.class_id || 'cls-tak1';
+      const effLateMin = status === 'late' ? (lateMin !== undefined ? lateMin : (selfLateMin[sessionId] || 15)) : 0;
+      const effRemarks =
+        status === 'leave'
+          ? (reason !== undefined ? reason : (selfReason[sessionId] || 'رخصت'))
+          : status === 'late'
+          ? `تاخیر ${effLateMin} منٹ`
+          : '';
+
+      await apiFetch(
+        '/api/attendance/quick-mark',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            studentId: user.studentId,
+            classId: effClassId,
+            sessionId,
+            date,
+            status,
+            lateMinutes: effLateMin,
+            remarks: effRemarks,
+          }),
+        },
+        user
+      );
+
+      setSelfModal(null);
+      setBanner(
+        lang === 'ur'
+          ? `✅ آپ کی حاضری بحیثیت "${status === 'present' ? 'حاضر' : status === 'late' ? 'تاخیر' : 'رخصت'}" کامیابی سے محفوظ ہو چکی ہے۔`
+          : 'Attendance updated successfully.'
+      );
+      await loadAttendanceSheet();
+    } catch (err: any) {
+      setError(err?.message || 'Failed to record attendance');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const loadAttendanceSheet = async () => {
     setLoading(true);
     setBanner(null);
@@ -148,7 +213,7 @@ export const AttendanceView: React.FC = () => {
   };
 
   useEffect(() => {
-    if (subTab === 'mark') loadAttendanceSheet();
+    if (subTab === 'mark' || subTab === 'student_self') loadAttendanceSheet();
     else loadReports();
   }, [subTab, date, month, classId, batchId, user?.role]);
 
@@ -573,11 +638,12 @@ export const AttendanceView: React.FC = () => {
   };
 
   const tabs: Array<{ id: AttTab; label: string; hide?: boolean }> = [
-    { id: 'mark', label: t('attMarkTab'), hide: !canMarkAttendance },
+    { id: 'student_self', label: lang === 'ur' ? '🎓 میری آج کی حاضری' : 'My Attendance', hide: user?.role !== 'student' },
+    { id: 'mark', label: t('attMarkTab'), hide: !canMarkAttendance || user?.role === 'student' },
     { id: 'daily', label: t('attDailyTab') },
     { id: 'monthly', label: t('attMonthlyTab') },
-    { id: 'absent', label: t('attAbsentTab') },
-    { id: 'corrections', label: t('attCorrectionsTab'), hide: !canMarkAttendance },
+    { id: 'absent', label: t('attAbsentTab'), hide: user?.role === 'student' },
+    { id: 'corrections', label: t('attCorrectionsTab'), hide: !canMarkAttendance || user?.role === 'student' },
   ];
 
   const unmarkedCount = rows.filter((r) => sessionColumns.some((sc) => !r.sessions?.[sc.id])).length;
@@ -593,96 +659,100 @@ export const AttendanceView: React.FC = () => {
 
   return (
     <div className="space-y-5">
-      {/* Sub-navigation tabs */}
-      <div className="border-b border-[#DCE4E0] overflow-x-auto">
-        <div className="flex items-center gap-1 min-w-max">
-          {tabs
-            .filter((tb) => !tb.hide)
-            .map((tb) => (
-              <button
-                key={tb.id}
-                type="button"
-                onClick={() => setSubTab(tb.id)}
-                className={`whitespace-nowrap shrink-0 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors ${
-                  subTab === tb.id
-                    ? 'border-[#065F46] text-[#065F46]'
-                    : 'border-transparent text-[#5A6D65] hover:text-[#111C18]'
-                }`}
-              >
-                {tb.label}
-              </button>
-            ))}
-        </div>
-      </div>
-
-      {/* Controls Bar */}
-      <div className="rounded-lg border border-[#DCE4E0] bg-white p-3 sm:p-4 flex flex-col sm:flex-row sm:items-end justify-between gap-3">
-        <div className="flex flex-wrap items-end gap-2.5 sm:gap-3">
-          {subTab === 'monthly' ? (
-            <div className="flex-1 sm:flex-none min-w-[140px]">
-              <label className="block text-[11px] text-[#5A6D65] mb-1">{lang === 'ur' ? 'مہینہ' : 'Month'}</label>
-              <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="w-full sm:w-auto rounded-md border border-[#DCE4E0] px-3 py-1.5 text-xs" />
-            </div>
-          ) : (
-            <div className="flex-1 sm:flex-none min-w-[140px]">
-              <label className="block text-[11px] text-[#5A6D65] mb-1">{t('date')}</label>
-              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full sm:w-auto rounded-md border border-[#DCE4E0] px-3 py-1.5 text-xs" />
-            </div>
-          )}
-
-          {/* Session select was removed from top filter as requested; sessions are selected directly via table columns */}
-
-          <div className="flex-1 sm:flex-none min-w-[160px]">
-            <label className="block text-[11px] text-[#5A6D65] mb-1">{t('classLabel')}</label>
-            <select value={classId} onChange={(e) => setClassId(e.target.value)} className="w-full sm:w-auto rounded-md border border-[#DCE4E0] px-3 py-1.5 text-xs bg-white">
-              <option value="">{t('allClasses')}</option>
-              {(lookups?.classes || []).map((c: any) => (
-                <option key={c.id} value={c.id}>{pick(c.name_en, c.name_ur)}</option>
+      {/* Sub-navigation tabs (Hidden for students) */}
+      {user?.role !== 'student' && (
+        <div className="border-b border-[#DCE4E0] overflow-x-auto">
+          <div className="flex items-center gap-1 min-w-max">
+            {tabs
+              .filter((tb) => !tb.hide)
+              .map((tb) => (
+                <button
+                  key={tb.id}
+                  type="button"
+                  onClick={() => setSubTab(tb.id)}
+                  className={`whitespace-nowrap shrink-0 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors ${
+                    subTab === tb.id
+                      ? 'border-[#065F46] text-[#065F46]'
+                      : 'border-transparent text-[#5A6D65] hover:text-[#111C18]'
+                  }`}
+                >
+                  {tb.label}
+                </button>
               ))}
-            </select>
           </div>
         </div>
+      )}
 
-        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-          {subTab === 'mark' && canMarkAttendance && unmarkedCount > 0 && (
-            <button
-              type="button"
-              onClick={handleMarkAllPresent}
-              disabled={saving}
-              className="flex-1 sm:flex-none justify-center inline-flex items-center gap-1.5 rounded-md border border-[#065F46]/40 bg-white px-3 py-2 text-xs font-medium text-[#065F46] hover:bg-[#065F46]/5 whitespace-nowrap disabled:opacity-60"
-            >
-              <Check className="h-3.5 w-3.5" />
-              <span>
-                {saving
-                  ? t('loading')
-                  : lang === 'ur'
-                    ? 'سب کو حاضر کریں (فوراً محفوظ)'
-                    : 'Mark All Present (instant)'}
-              </span>
-            </button>
-          )}
-          {(subTab === 'daily' || subTab === 'monthly') && (
-            <>
+      {/* Controls Bar (Only for Staff / Admin) */}
+      {user?.role !== 'student' && (
+        <div className="rounded-lg border border-[#DCE4E0] bg-white p-3 sm:p-4 flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+          <div className="flex flex-wrap items-end gap-2.5 sm:gap-3">
+            {subTab === 'monthly' ? (
+              <div className="flex-1 sm:flex-none min-w-[140px]">
+                <label className="block text-[11px] text-[#5A6D65] mb-1">{lang === 'ur' ? 'مہینہ' : 'Month'}</label>
+                <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="w-full sm:w-auto rounded-md border border-[#DCE4E0] px-3 py-1.5 text-xs" />
+              </div>
+            ) : (
+              <div className="flex-1 sm:flex-none min-w-[140px]">
+                <label className="block text-[11px] text-[#5A6D65] mb-1">{t('date')}</label>
+                <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full sm:w-auto rounded-md border border-[#DCE4E0] px-3 py-1.5 text-xs" />
+              </div>
+            )}
+
+            {/* Session select was removed from top filter as requested; sessions are selected directly via table columns */}
+
+            <div className="flex-1 sm:flex-none min-w-[160px]">
+              <label className="block text-[11px] text-[#5A6D65] mb-1">{t('classLabel')}</label>
+              <select value={classId} onChange={(e) => setClassId(e.target.value)} className="w-full sm:w-auto rounded-md border border-[#DCE4E0] px-3 py-1.5 text-xs bg-white">
+                <option value="">{t('allClasses')}</option>
+                {(lookups?.classes || []).map((c: any) => (
+                  <option key={c.id} value={c.id}>{pick(c.name_en, c.name_ur)}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+            {subTab === 'mark' && canMarkAttendance && unmarkedCount > 0 && (
               <button
                 type="button"
-                onClick={subTab === 'daily' ? exportDailyExcel : exportMonthlyExcel}
-                className="flex-1 sm:flex-none justify-center inline-flex items-center gap-1.5 rounded-md border border-[#DCE4E0] bg-white px-3 py-1.5 text-xs font-medium text-[#111C18] hover:bg-[#F6F8F7] whitespace-nowrap"
+                onClick={handleMarkAllPresent}
+                disabled={saving}
+                className="flex-1 sm:flex-none justify-center inline-flex items-center gap-1.5 rounded-md border border-[#065F46]/40 bg-white px-3 py-2 text-xs font-medium text-[#065F46] hover:bg-[#065F46]/5 whitespace-nowrap disabled:opacity-60"
               >
-                <Download className="h-3.5 w-3.5 text-[#065F46]" />
-                <span>{t('exportExcel')}</span>
+                <Check className="h-3.5 w-3.5" />
+                <span>
+                  {saving
+                    ? t('loading')
+                    : lang === 'ur'
+                      ? 'سب کو حاضر کریں (فوراً محفوظ)'
+                      : 'Mark All Present (instant)'}
+                </span>
               </button>
-              <button
-                type="button"
-                onClick={subTab === 'daily' ? exportDailyPdf : exportMonthlyPdf}
-                className="flex-1 sm:flex-none justify-center inline-flex items-center gap-1.5 rounded-md bg-[#065F46] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#064E3B] whitespace-nowrap"
-              >
-                <FileText className="h-3.5 w-3.5" />
-                <span>{t('exportPdf')}</span>
-              </button>
-            </>
-          )}
+            )}
+            {(subTab === 'daily' || subTab === 'monthly') && (
+              <>
+                <button
+                  type="button"
+                  onClick={subTab === 'daily' ? exportDailyExcel : exportMonthlyExcel}
+                  className="flex-1 sm:flex-none justify-center inline-flex items-center gap-1.5 rounded-md border border-[#DCE4E0] bg-white px-3 py-1.5 text-xs font-medium text-[#111C18] hover:bg-[#F6F8F7] whitespace-nowrap"
+                >
+                  <Download className="h-3.5 w-3.5 text-[#065F46]" />
+                  <span>{t('exportExcel')}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={subTab === 'daily' ? exportDailyPdf : exportMonthlyPdf}
+                  className="flex-1 sm:flex-none justify-center inline-flex items-center gap-1.5 rounded-md bg-[#065F46] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#064E3B] whitespace-nowrap"
+                >
+                  <FileText className="h-3.5 w-3.5" />
+                  <span>{t('exportPdf')}</span>
+                </button>
+              </>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {banner && (
         <div className="rounded-md border border-[#065F46]/30 bg-[#065F46]/5 px-4 py-3 text-xs font-medium text-[#064E3B]">
@@ -712,6 +782,377 @@ export const AttendanceView: React.FC = () => {
                   </div>
                 );
               })}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* 1. STUDENT SELF-ATTENDANCE SUBMISSION (FOR STUDENT LOGGED IN) */}
+      {subTab === 'student_self' && (() => {
+        const myRow = rows.find(
+          (r) => r.student_id === user?.studentId || r.student_code === user?.studentCode
+        ) || rows[0];
+
+        return (
+          <div className="space-y-6">
+            {/* Student Header Card */}
+            <div className="rounded-xl border border-emerald-200 bg-gradient-to-r from-emerald-50 via-[#F0FDF4] to-white p-5 shadow-xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="h-13 w-13 rounded-full bg-[#065F46] text-white flex items-center justify-center font-bold text-xl shadow-sm ring-4 ring-emerald-100">
+                    🎓
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                      <h2 className="text-lg font-bold text-[#065F46]">
+                        {user?.nameUr || myRow?.full_name_ur || 'طالب علم'}
+                      </h2>
+                      <span className="font-mono-code font-bold bg-white text-[#065F46] border border-emerald-300 px-2.5 py-0.5 rounded text-xs shadow-2xs">
+                        {user?.studentCode || myRow?.student_code || 'ST-001'}
+                      </span>
+                      <span className="text-xs bg-emerald-100/80 text-emerald-900 px-2 py-0.5 rounded">
+                        {user?.classNameUr || myRow?.class_name_ur || 'تخصص فی الفقہ'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-lg border border-emerald-200 shadow-2xs">
+                  <Clock className="h-4 w-4 text-[#065F46]" />
+                  <span className="text-xs font-semibold text-[#5A6D65] whitespace-nowrap">
+                    {lang === 'ur' ? 'تاریخ:' : 'Date:'}
+                  </span>
+                  <input
+                    type="date"
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
+                    className="font-mono-code font-bold text-xs text-[#065F46] focus:outline-none bg-transparent"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-3 pt-3 border-t border-emerald-200/60 flex items-center justify-between text-xs text-[#334E68] flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <Clock className="h-3.5 w-3.5 text-[#065F46]" />
+                  <span>{formatUrduFullDate(date)}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Three Session Cards */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-bold text-[#0B2545] flex items-center gap-2">
+                  <span>{lang === 'ur' ? 'سہ وقتی حاضری' : "Today's Attendance"}</span>
+                </h3>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {sessionColumns.map((sc, idx) => {
+                  const rec = myRow?.sessions?.[sc.id];
+                  const isPresent = rec?.status === 'present';
+                  const isLate = rec?.status === 'late';
+                  const isLeave = rec?.status === 'leave';
+                  const isAbsent = rec?.status === 'absent';
+
+                  const sessionTime =
+                    sc.id === 'ses-morning' || sc.id === 'morning_zuhr'
+                      ? 'صبح 08:00 تا 12:00 دوپہر'
+                      : sc.id === 'ses-zuhr' || sc.id === 'zuhr_asr'
+                      ? 'دوپہر 02:00 تا عصر'
+                      : 'مغرب تا عشاء (08:00 شام)';
+
+                  return (
+                    <div
+                      key={sc.id}
+                      className={`rounded-xl border p-4.5 transition-all bg-white shadow-xs ${
+                        isPresent
+                          ? 'border-emerald-300 ring-1 ring-emerald-200'
+                          : isLate
+                          ? 'border-amber-300 ring-1 ring-amber-200'
+                          : isLeave
+                          ? 'border-sky-300 ring-1 ring-sky-200'
+                          : isAbsent
+                          ? 'border-rose-300 ring-1 ring-rose-200'
+                          : 'border-[#DCE4E0]'
+                      }`}
+                    >
+                      {/* Session Header */}
+                      <div className="flex items-start justify-between gap-2 pb-3 border-b border-[#F0F4F2]">
+                        <div>
+                          <div className="text-[11px] font-semibold text-[#5A6D65]">
+                            {lang === 'ur' ? `سیشن ${idx + 1}` : `Session ${idx + 1}`}
+                          </div>
+                          <div className="text-base font-bold text-[#0B2545] mt-0.5">
+                            {pick(sc.labelEn, sc.labelUr)}
+                          </div>
+                          <div className="text-[11px] text-[#718279] mt-0.5 flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            <span>{sessionTime}</span>
+                          </div>
+                        </div>
+
+                        {/* Status Badge */}
+                        <div className="shrink-0">
+                          {isPresent ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              <span>{lang === 'ur' ? 'حاضر ✓' : 'Present'}</span>
+                            </span>
+                          ) : isLate ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                              <Clock className="h-3.5 w-3.5" />
+                              <span>{lang === 'ur' ? `تاخیر (${rec?.late_minutes || 15} منٹ)` : `Late (${rec?.late_minutes}m)`}</span>
+                            </span>
+                          ) : isLeave ? (
+                            <span
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-sky-100 text-sky-800 border border-sky-300"
+                              title={rec?.remarks || 'رخصت'}
+                            >
+                              <AlertCircle className="h-3.5 w-3.5" />
+                              <span>{lang === 'ur' ? (rec?.remarks && rec.remarks !== 'رخصت' ? `رخصت (${rec.remarks})` : 'رخصت / عذر') : 'Leave'}</span>
+                            </span>
+                          ) : isAbsent ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-300">
+                              <X className="h-3.5 w-3.5" />
+                              <span>{lang === 'ur' ? 'غیر حاضر' : 'Absent'}</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600 border border-gray-300">
+                              <span>{lang === 'ur' ? 'غیر درج شدہ' : 'Unmarked'}</span>
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="mt-4 space-y-2.5">
+                        <div className="grid grid-cols-3 gap-1.5">
+                          {/* Present Button */}
+                          <button
+                            type="button"
+                            disabled={saving}
+                            onClick={() => handleStudentSelfMark(sc.id, 'present')}
+                            className={`flex flex-col items-center justify-center py-2 px-1 rounded-lg text-xs font-bold transition-all ${
+                              isPresent
+                                ? 'bg-[#065F46] text-white shadow-xs'
+                                : 'border border-emerald-300 text-[#065F46] hover:bg-emerald-50'
+                            }`}
+                          >
+                            <Check className="h-4 w-4 mb-0.5" />
+                            <span>{lang === 'ur' ? 'حاضر' : 'Present'}</span>
+                          </button>
+
+                          {/* Late Button */}
+                          <button
+                            type="button"
+                            disabled={saving}
+                            onClick={() => {
+                              setCustomLateVal('15');
+                              setSelfModal({
+                                sessionId: sc.id,
+                                sessionTitle: pick(sc.labelEn, sc.labelUr),
+                                type: 'late',
+                              });
+                            }}
+                            className={`flex flex-col items-center justify-center py-2 px-1 rounded-lg text-xs font-bold transition-all ${
+                              isLate
+                                ? 'bg-amber-600 text-white shadow-xs'
+                                : 'border border-amber-300 text-amber-700 hover:bg-amber-50'
+                            }`}
+                          >
+                            <Clock className="h-4 w-4 mb-0.5" />
+                            <span>{lang === 'ur' ? 'تاخیر' : 'Late'}</span>
+                          </button>
+
+                          {/* Leave Button */}
+                          <button
+                            type="button"
+                            disabled={saving}
+                            onClick={() => {
+                              setLeaveReasonVal('رخصت');
+                              setSelfModal({
+                                sessionId: sc.id,
+                                sessionTitle: pick(sc.labelEn, sc.labelUr),
+                                type: 'leave',
+                              });
+                            }}
+                            className={`flex flex-col items-center justify-center py-2 px-1 rounded-lg text-xs font-bold transition-all ${
+                              isLeave
+                                ? 'bg-[#0B2545] text-white shadow-xs'
+                                : 'border border-sky-300 text-[#0B2545] hover:bg-sky-50'
+                            }`}
+                          >
+                            <AlertCircle className="h-4 w-4 mb-0.5" />
+                            <span>{lang === 'ur' ? 'رخصت' : 'Leave'}</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Modal for Late & Leave (Does not affect session card size) */}
+            {selfModal && (
+              <Modal
+                open={!!selfModal}
+                onClose={() => setSelfModal(null)}
+                labelledBy="self-modal-title"
+                panelClassName="w-full max-w-sm rounded-xl border border-[#DCE4E0] bg-white p-5 shadow-xl font-urdu"
+              >
+                {selfModal.type === 'late' ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between border-b border-amber-200 pb-2">
+                      <div className="flex items-center gap-2 text-amber-800">
+                        <Clock className="h-5 w-5 text-amber-600" />
+                        <h3 id="self-modal-title" className="font-bold text-sm">
+                          تاخیر کا اندراج — {selfModal.sessionTitle}
+                        </h3>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setSelfModal(null)}
+                        className="text-gray-400 hover:text-gray-600"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="block text-xs font-semibold text-[#5A6D65]">
+                        تاخیر کے منٹ منتخب کریں:
+                      </label>
+                      <div className="grid grid-cols-4 gap-2">
+                        {[10, 15, 30, 45].map((m) => (
+                          <button
+                            key={m}
+                            type="button"
+                            disabled={saving}
+                            onClick={async () => {
+                              const sid = selfModal.sessionId;
+                              setSelfModal(null);
+                              await handleStudentSelfMark(sid, 'late', m);
+                            }}
+                            className="py-2 px-1 rounded-lg border border-amber-300 bg-amber-50 text-xs font-bold text-amber-900 hover:bg-amber-100 transition-colors"
+                          >
+                            {m} منٹ
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5 pt-1">
+                      <label className="block text-xs font-semibold text-[#5A6D65]">
+                        یا اپنی مرضی کے منٹ درج کریں:
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min="1"
+                          max="240"
+                          value={customLateVal}
+                          onChange={(e) => setCustomLateVal(e.target.value)}
+                          className="w-full rounded-lg border border-[#DCE4E0] px-3 py-1.5 text-xs font-mono-code bg-white focus:ring-1 focus:ring-amber-500"
+                        />
+                        <button
+                          type="button"
+                          disabled={saving}
+                          onClick={async () => {
+                            const sid = selfModal.sessionId;
+                            const val = parseInt(customLateVal || '15', 10);
+                            setSelfModal(null);
+                            await handleStudentSelfMark(sid, 'late', !isNaN(val) && val > 0 ? val : 15);
+                          }}
+                          className="rounded-lg bg-amber-600 text-white px-4 py-1.5 text-xs font-bold hover:bg-amber-700 whitespace-nowrap shadow-xs"
+                        >
+                          محفوظ کریں
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between border-b border-sky-200 pb-2">
+                      <div className="flex items-center gap-2 text-[#0B2545]">
+                        <AlertCircle className="h-5 w-5 text-sky-600" />
+                        <h3 id="self-modal-title" className="font-bold text-sm">
+                          رخصت / عذر کا اندراج — {selfModal.sessionTitle}
+                        </h3>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setSelfModal(null)}
+                        className="text-gray-400 hover:text-gray-600"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-semibold text-[#5A6D65]">
+                        رخصت کی وجہ / عذر تحریر کریں:
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="مثلاً: علالت، ناگزیر سفر، تقریب وغیرہ"
+                        value={leaveReasonVal}
+                        onChange={(e) => setLeaveReasonVal(e.target.value)}
+                        className="w-full rounded-lg border border-[#DCE4E0] px-3 py-2 text-xs bg-white focus:ring-1 focus:ring-[#0B2545]"
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#F0F4F2]">
+                      <button
+                        type="button"
+                        onClick={() => setSelfModal(null)}
+                        className="rounded-lg px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-100"
+                      >
+                        منسوخ
+                      </button>
+                      <button
+                        type="button"
+                        disabled={saving}
+                        onClick={async () => {
+                          const sid = selfModal.sessionId;
+                          const r = leaveReasonVal.trim() || 'رخصت';
+                          setSelfModal(null);
+                          await handleStudentSelfMark(sid, 'leave', 0, r);
+                        }}
+                        className="rounded-lg bg-[#0B2545] text-white px-4 py-1.5 text-xs font-bold hover:bg-[#071D36] shadow-xs"
+                      >
+                        رخصت درج کریں
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </Modal>
+            )}
+
+            {/* Quick Actions Footer Card */}
+            <div className="rounded-xl border border-[#DCE4E0] bg-white p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2 text-[#5A6D65]">
+                <CheckCircle2 className="h-4 w-4 text-[#065F46]" />
+                <span>
+                  {lang === 'ur'
+                    ? 'آپ ماہانہ رجسٹر شیٹ میں اپنی 30 دن کی تمام تاریخوں کی حاضری اور دستخط دیکھ سکتے ہیں۔'
+                    : 'View your 30-day individual monthly register sheet anytime.'}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSubTab('monthly');
+                    setMonthlyViewMode('individual_register');
+                    if (user?.studentId) setSelectedStudentId(user.studentId);
+                  }}
+                  className="rounded-lg border border-[#065F46] bg-[#065F46]/5 px-3 py-1.5 text-xs font-bold text-[#065F46] hover:bg-[#065F46]/10"
+                >
+                  {lang === 'ur' ? '📄 میرا ماہانہ رجسٹر دیکھیں' : 'View My Monthly Register'}
+                </button>
+              </div>
             </div>
           </div>
         );
@@ -1180,7 +1621,7 @@ export const AttendanceView: React.FC = () => {
               </div>
             </div>
             <div className="rounded-lg border border-[#DCE4E0] bg-white p-3.5">
-              <div className="text-[11px] text-[#5A6D65]">{lang === 'ur' ? 'آج کے مطالعہ لاگز' : 'Mutala Logs Today'}</div>
+              <div className="text-[11px] text-[#5A6D65]">{lang === 'ur' ? 'آج کے مطالعہ اندراجات' : 'Mutala Entries Today'}</div>
               <div className="text-lg font-bold text-[#065F46] mt-0.5">
                 {reports.dailyMutala?.length ?? dailyGroupedRows.reduce((acc: number, r: any) => acc + (r.mutala?.length || 0), 0)}
               </div>
@@ -1477,17 +1918,6 @@ export const AttendanceView: React.FC = () => {
             <div className="flex items-center gap-1.5 p-1 bg-[#F6F8F7] rounded-md border border-[#DCE4E0] overflow-x-auto">
               <button
                 type="button"
-                onClick={() => setMonthlyViewMode('individual_register')}
-                className={`px-3 py-1.5 text-xs font-medium rounded whitespace-nowrap transition-colors ${
-                  monthlyViewMode === 'individual_register'
-                    ? 'bg-[#065F46] text-white shadow-sm'
-                    : 'text-[#5A6D65] hover:text-[#111C18]'
-                }`}
-              >
-                {lang === 'ur' ? '📄 انفرادی طالب علم رجسٹر شیٹ' : '📄 Student Monthly Sheet'}
-              </button>
-              <button
-                type="button"
                 onClick={() => setMonthlyViewMode('summary_table')}
                 className={`px-3 py-1.5 text-xs font-medium rounded whitespace-nowrap transition-colors ${
                   monthlyViewMode === 'summary_table'
@@ -1496,6 +1926,17 @@ export const AttendanceView: React.FC = () => {
                 }`}
               >
                 {lang === 'ur' ? '📊 ماہانہ مجموعی فیصد جائزہ' : '📊 Monthly Percentage Summary'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setMonthlyViewMode('individual_register')}
+                className={`px-3 py-1.5 text-xs font-medium rounded whitespace-nowrap transition-colors ${
+                  monthlyViewMode === 'individual_register'
+                    ? 'bg-[#065F46] text-white shadow-sm'
+                    : 'text-[#5A6D65] hover:text-[#111C18]'
+                }`}
+              >
+                {lang === 'ur' ? '📄 انفرادی طالب علم رجسٹر شیٹ' : '📄 Student Monthly Sheet'}
               </button>
             </div>
 
@@ -1555,6 +1996,51 @@ export const AttendanceView: React.FC = () => {
           </div>
 
 
+
+          {/* MODE A: 📊 ماہانہ مجموعی فیصد جائزہ (تمام طلبہ - 100% Real Data) */}
+          {monthlyViewMode === 'summary_table' && (
+            <div className="rounded-lg border border-[#DCE4E0] bg-white overflow-x-auto shadow-sm">
+              <table className="w-full text-xs min-w-[720px]">
+                <thead>
+                  <tr className="border-b border-[#E5ECE8] bg-[#F6F8F7] text-[#5A6D65]">
+                    <th className="px-4 py-3 text-start font-medium whitespace-nowrap">{t('studentId')}</th>
+                    <th className="px-4 py-3 text-start font-medium whitespace-nowrap min-w-[140px]">{t('fullNameUr')}</th>
+                    <th className="px-4 py-3 text-start font-medium whitespace-nowrap">{t('classLabel')}</th>
+                    <th className="px-4 py-3 text-end font-medium whitespace-nowrap">{t('present')}</th>
+                    <th className="px-4 py-3 text-end font-medium whitespace-nowrap">{t('late')}</th>
+                    <th className="px-4 py-3 text-end font-medium whitespace-nowrap">{t('leave')}</th>
+                    <th className="px-4 py-3 text-end font-medium whitespace-nowrap">{t('absent')}</th>
+                    <th className="px-4 py-3 text-end font-medium whitespace-nowrap">{t('attendancePct')}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#EEF2F0]">
+                  {(!reports?.monthlySummary || reports.monthlySummary.length === 0) ? (
+                    <tr>
+                      <td colSpan={8} className="py-10 text-center text-[#5A6D65]">
+                        {t('noData')}
+                      </td>
+                    </tr>
+                  ) : (
+                    (reports?.monthlySummary || []).map((r: any) => {
+                      const pct = r.total_sessions > 0 ? Math.round(((r.present_count + r.late_count) / r.total_sessions) * 100) : 0;
+                      return (
+                        <tr key={r.student_id} className="hover:bg-[#F6F8F7]">
+                          <td className="px-4 py-3 font-mono-code font-semibold text-[#065F46] whitespace-nowrap">{r.student_code}</td>
+                          <td className="px-4 py-3 font-medium whitespace-nowrap min-w-[140px]">{pick(r.full_name, r.full_name_ur)}</td>
+                          <td className="px-4 py-3 text-[#5A6D65] whitespace-nowrap">{pick(r.class_name_en, r.class_name_ur)}</td>
+                          <td className="px-4 py-3 text-end font-mono-code text-[#15803D] whitespace-nowrap">{r.present_count}</td>
+                          <td className="px-4 py-3 text-end font-mono-code text-[#B45309] whitespace-nowrap">{r.late_count}</td>
+                          <td className="px-4 py-3 text-end font-mono-code whitespace-nowrap">{r.leave_count}</td>
+                          <td className="px-4 py-3 text-end font-mono-code text-[#B91C1C] whitespace-nowrap">{r.absent_count}</td>
+                          <td className="px-4 py-3 text-end font-bold font-mono-code text-[#065F46] whitespace-nowrap">{pct}%</td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
 
           {/* MODE B: 📄 انفرادی طالب علم رجسٹر شیٹ (Official Sheet - 100% Real Data) */}
           {monthlyViewMode === 'individual_register' && (
@@ -1674,51 +2160,6 @@ export const AttendanceView: React.FC = () => {
                   </tbody>
                 </table>
               </div>
-            </div>
-          )}
-
-          {/* MODE C: 📊 ماہانہ مجموعی فیصد جائزہ (تمام طلبہ - 100% Real Data) */}
-          {monthlyViewMode === 'summary_table' && (
-            <div className="rounded-lg border border-[#DCE4E0] bg-white overflow-x-auto shadow-sm">
-              <table className="w-full text-xs min-w-[720px]">
-                <thead>
-                  <tr className="border-b border-[#E5ECE8] bg-[#F6F8F7] text-[#5A6D65]">
-                    <th className="px-4 py-3 text-start font-medium whitespace-nowrap">{t('studentId')}</th>
-                    <th className="px-4 py-3 text-start font-medium whitespace-nowrap min-w-[140px]">{t('fullNameUr')}</th>
-                    <th className="px-4 py-3 text-start font-medium whitespace-nowrap">{t('classLabel')}</th>
-                    <th className="px-4 py-3 text-end font-medium whitespace-nowrap">{t('present')}</th>
-                    <th className="px-4 py-3 text-end font-medium whitespace-nowrap">{t('late')}</th>
-                    <th className="px-4 py-3 text-end font-medium whitespace-nowrap">{t('leave')}</th>
-                    <th className="px-4 py-3 text-end font-medium whitespace-nowrap">{t('absent')}</th>
-                    <th className="px-4 py-3 text-end font-medium whitespace-nowrap">{t('attendancePct')}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#EEF2F0]">
-                  {(!reports?.monthlySummary || reports.monthlySummary.length === 0) ? (
-                    <tr>
-                      <td colSpan={8} className="py-10 text-center text-[#5A6D65]">
-                        {t('noData')}
-                      </td>
-                    </tr>
-                  ) : (
-                    (reports?.monthlySummary || []).map((r: any) => {
-                      const pct = r.total_sessions > 0 ? Math.round(((r.present_count + r.late_count) / r.total_sessions) * 100) : 0;
-                      return (
-                        <tr key={r.student_id} className="hover:bg-[#F6F8F7]">
-                          <td className="px-4 py-3 font-mono-code font-semibold text-[#065F46] whitespace-nowrap">{r.student_code}</td>
-                          <td className="px-4 py-3 font-medium whitespace-nowrap min-w-[140px]">{pick(r.full_name, r.full_name_ur)}</td>
-                          <td className="px-4 py-3 text-[#5A6D65] whitespace-nowrap">{pick(r.class_name_en, r.class_name_ur)}</td>
-                          <td className="px-4 py-3 text-end font-mono-code text-[#15803D] whitespace-nowrap">{r.present_count}</td>
-                          <td className="px-4 py-3 text-end font-mono-code text-[#B45309] whitespace-nowrap">{r.late_count}</td>
-                          <td className="px-4 py-3 text-end font-mono-code whitespace-nowrap">{r.leave_count}</td>
-                          <td className="px-4 py-3 text-end font-mono-code text-[#B91C1C] whitespace-nowrap">{r.absent_count}</td>
-                          <td className="px-4 py-3 text-end font-bold font-mono-code text-[#065F46] whitespace-nowrap">{pct}%</td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
             </div>
           )}
         </div>

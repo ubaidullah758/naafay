@@ -13,6 +13,8 @@ export async function apiFetch<T = any>(
   if (user) {
     headers['x-user-role'] = user.role;
     headers['x-user-id'] = user.profileId;
+    if (user.studentId) headers['x-student-id'] = user.studentId;
+    if (user.teacherId) headers['x-teacher-id'] = user.teacherId;
   }
 
   const res = await fetch(url, {

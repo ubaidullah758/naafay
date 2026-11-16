@@ -10,6 +10,10 @@ export interface ActiveUser {
   email: string;
   teacherId?: string;
   studentId?: string;
+  studentCode?: string;
+  classId?: string;
+  classNameUr?: string;
+  fatherNameUr?: string;
 }
 
 export const ROLE_PERSONAS: Record<UserRole, ActiveUser> = {
@@ -50,6 +54,9 @@ export const ROLE_PERSONAS: Record<UserRole, ActiveUser> = {
     nameUr: 'مولانا عبدالرحمٰن مدنی',
     email: 'abdurrahman@naafay.edu.pk',
     studentId: 'stu-1',
+    studentCode: 'ST-001',
+    classId: 'cls-tak1',
+    classNameUr: 'تخصص فی الفقہ — سالِ اول',
   },
 };
 
@@ -57,11 +64,14 @@ interface AuthContextValue {
   user: ActiveUser | null;
   signInAsRole: (role: UserRole) => void;
   loginAdminWithCredentials: (email: string, accessCode: string) => Promise<void>;
+  loginStudentWithCredentials: (studentCode: string, pin: string) => Promise<ActiveUser>;
+  loginTeacherWithCredentials: (teacherCode: string, pin: string) => Promise<ActiveUser>;
   signOut: () => void;
   // Academic permissions
   canManageStudents: boolean;
   canDeleteStudents: boolean;
   canMarkAttendance: boolean;
+  canMarkOwnAttendance: boolean;
   canReviewMutala: boolean;
   canRecordLessons: boolean;
   canManageExams: boolean;
@@ -81,6 +91,28 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<ActiveUser | null>(() => {
     const saved = localStorage.getItem('naafay_active_role') as UserRole | null;
+    if (saved === 'student') {
+      const storedStu = localStorage.getItem('naafay_active_student_user');
+      if (storedStu) {
+        try {
+          return JSON.parse(storedStu);
+        } catch {
+          // fallback
+        }
+      }
+      return ROLE_PERSONAS.student;
+    }
+    if (saved === 'mufti' || saved === 'senior_mufti') {
+      const storedTch = localStorage.getItem('naafay_active_teacher_user');
+      if (storedTch) {
+        try {
+          return JSON.parse(storedTch);
+        } catch {
+          // fallback
+        }
+      }
+      return ROLE_PERSONAS[saved] || ROLE_PERSONAS.mufti;
+    }
     if (saved && ROLE_PERSONAS[saved]) return ROLE_PERSONAS[saved];
     return ROLE_PERSONAS.admin;
   });
@@ -89,6 +121,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const persona = ROLE_PERSONAS[role];
     setUser(persona);
     localStorage.setItem('naafay_active_role', role);
+    if (role !== 'student') {
+      localStorage.removeItem('naafay_active_student_user');
+    }
   };
 
   const loginAdminWithCredentials = async (email: string, accessCode: string) => {
@@ -103,11 +138,51 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     setUser(json.user);
     localStorage.setItem('naafay_active_role', 'admin');
+    localStorage.removeItem('naafay_active_student_user');
+    localStorage.removeItem('naafay_active_teacher_user');
+  };
+
+  const loginStudentWithCredentials = async (mobileOrCode: string, pin: string): Promise<ActiveUser> => {
+    const res = await fetch('/api/student/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mobile: mobileOrCode, studentCode: mobileOrCode, pin }),
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      throw new Error(json.error_ur || json.error || 'Student login failed');
+    }
+    const stuUser: ActiveUser = json.user;
+    setUser(stuUser);
+    localStorage.setItem('naafay_active_role', 'student');
+    localStorage.setItem('naafay_active_student_user', JSON.stringify(stuUser));
+    localStorage.removeItem('naafay_active_teacher_user');
+    return stuUser;
+  };
+
+  const loginTeacherWithCredentials = async (teacherCode: string, pin: string): Promise<ActiveUser> => {
+    const res = await fetch('/api/teacher/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ teacherCode, pin }),
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      throw new Error(json.error_ur || json.error || 'Teacher login failed');
+    }
+    const tchUser: ActiveUser = json.user;
+    setUser(tchUser);
+    localStorage.setItem('naafay_active_role', tchUser.role);
+    localStorage.setItem('naafay_active_teacher_user', JSON.stringify(tchUser));
+    localStorage.removeItem('naafay_active_student_user');
+    return tchUser;
   };
 
   const signOut = () => {
     setUser(null);
     localStorage.removeItem('naafay_active_role');
+    localStorage.removeItem('naafay_active_student_user');
+    localStorage.removeItem('naafay_active_teacher_user');
   };
 
   const role = user?.role;
@@ -119,10 +194,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user,
         signInAsRole,
         loginAdminWithCredentials,
+        loginStudentWithCredentials,
+        loginTeacherWithCredentials,
         signOut,
         canManageStudents: role === 'admin' || role === 'office_staff',
         canDeleteStudents: role === 'admin',
         canMarkAttendance: role === 'admin' || role === 'office_staff' || isMuftiOrSenior,
+        canMarkOwnAttendance: role === 'student',
         canReviewMutala: role === 'admin' || isMuftiOrSenior,
         canRecordLessons: role === 'admin' || isMuftiOrSenior,
         canManageExams: role === 'admin' || role === 'office_staff' || isMuftiOrSenior,

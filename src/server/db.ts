@@ -723,6 +723,38 @@ export function initDatabase() {
   if (!lrCols.includes('attendance_status')) db.exec("ALTER TABLE lesson_records ADD COLUMN attendance_status TEXT DEFAULT 'present'");
   if (!lrCols.includes('daily_pages')) db.exec("ALTER TABLE lesson_records ADD COLUMN daily_pages INTEGER DEFAULT 1");
   if (!lrCols.includes('cumulative_pages')) db.exec("ALTER TABLE lesson_records ADD COLUMN cumulative_pages INTEGER DEFAULT 0");
+
+  // Ensure student pin column & profile links exist for individual student logins
+  const stuCols = (db.prepare("PRAGMA table_info(students)").all() as Array<{ name: string }>).map((c) => c.name);
+  if (!stuCols.includes('pin')) db.exec("ALTER TABLE students ADD COLUMN pin TEXT DEFAULT '123456'");
+
+  const allDbStudents = db.prepare('SELECT * FROM students').all() as any[];
+  const insStuProf = db.prepare('INSERT OR IGNORE INTO profiles (id, email, full_name, full_name_ur, phone, preferred_language) VALUES (?, ?, ?, ?, ?, ?)');
+  const updStuProf = db.prepare('UPDATE students SET profile_id = ? WHERE id = ?');
+  const insStuRole = db.prepare('INSERT OR IGNORE INTO user_roles (id, user_id, role_id) VALUES (?, ?, ?)');
+
+  for (const s of allDbStudents) {
+    const profId = s.profile_id || `prof-student-${s.id}`;
+    const email = s.email || `${s.student_code.toLowerCase().replace(/[^a-z0-9]/g, '')}@naafay.edu.pk`;
+    insStuProf.run(profId, email, s.full_name, s.full_name_ur || s.full_name, s.phone, 'ur');
+    if (!s.profile_id) {
+      updStuProf.run(profId, s.id);
+    }
+    insStuRole.run(uid(), profId, 'role-student');
+  }
+
+  // Ensure all teachers have profiles and roles
+  const allDbTeachers = db.prepare('SELECT * FROM teachers').all() as any[];
+  for (const t of allDbTeachers) {
+    const profId = t.profile_id || `prof-teacher-${t.id}`;
+    const email = `${t.teacher_code.toLowerCase().replace(/[^a-z0-9]/g, '')}@naafay.edu.pk`;
+    insStuProf.run(profId, email, t.full_name, t.full_name_ur || t.full_name, t.phone || '+92-300-0000000', 'ur');
+    if (!t.profile_id) {
+      db.prepare('UPDATE teachers SET profile_id = ? WHERE id = ?').run(profId, t.id);
+    }
+    const roleId = t.id === 'tch-2' ? 'role-senior-mufti' : 'role-teacher';
+    insStuRole.run(uid(), profId, roleId);
+  }
 }
 
 export function nextStudentCode(): string {

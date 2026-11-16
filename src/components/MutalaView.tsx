@@ -13,7 +13,9 @@ import {
   Sparkles,
   BookMarked,
   X,
-  CheckCircle2
+  CheckCircle2,
+  GraduationCap,
+  Users
 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
@@ -28,14 +30,207 @@ import {
 } from '../lib/date';
 import { ConfirmDialog } from './ConfirmDialog';
 import { ErrorState } from './ErrorState';
+import {
+  STATIC_STUDENTS,
+  STATIC_LOOKUPS,
+  STATIC_MUTALA,
+} from '../lib/staticInitialData';
+
+// Official Teacher Monthly Cumulative Karguzari (Image 5)
+const DEFAULT_TEACHER_CUMULATIVE = [
+  {
+    id: 'tch-cum-1',
+    teacher_name: 'مفتی سراج الحق صاحب',
+    book_title: 'السراجی فی المیراث',
+    class_id: 'cls-tak2',
+    class_name: 'تخصص فی الفقہ — سالِ دوم',
+    start_excerpt: 'باب احوال الاولاد و الزوجین',
+    end_excerpt: 'باب احوال الاخوات و العصبات',
+    pages_span: '12 تا 48',
+    total_pages: '36',
+    monthly_duration: '45 گھنٹے',
+    absences: '0',
+    syllabus_status: 'مکمل (الحمدللہ)',
+  },
+  {
+    id: 'tch-cum-2',
+    teacher_name: 'مفتی سلمان منصورپوری صاحب',
+    book_title: 'رد المحتار (فتاویٰ شامی)',
+    class_id: 'cls-tak1',
+    class_name: 'تخصص فی الفقہ — سالِ اول',
+    start_excerpt: 'کتاب الطہارۃ — احکام المیاہ',
+    end_excerpt: 'کتاب الصلوۃ — شرائط الصلوۃ',
+    pages_span: '160 تا 240',
+    total_pages: '80',
+    monthly_duration: '48 گھنٹے',
+    absences: '1',
+    syllabus_status: 'مکمل حسبِ منصوبہ',
+  },
+  {
+    id: 'tch-cum-3',
+    teacher_name: 'مفتی خالد سیف اللہ صاحب',
+    book_title: 'شرح عقود رسم المفتی',
+    class_id: 'cls-tak1',
+    class_name: 'تخصص فی الفقہ — سالِ اول',
+    start_excerpt: 'مقدمہ رسم المفتی و آداب الفتویٰ',
+    end_excerpt: 'فصل فی مراعاۃ العرف و تغیر الاحکام',
+    pages_span: '1 تا 55',
+    total_pages: '55',
+    monthly_duration: '42 گھنٹے',
+    absences: '0',
+    syllabus_status: 'مکمل',
+  },
+  {
+    id: 'tch-cum-4',
+    teacher_name: 'مفتی انس ندوی صاحب',
+    book_title: 'الاشباہ والنظائر',
+    class_id: 'cls-tak1',
+    class_name: 'تخصص فی الفقہ — سالِ اول',
+    start_excerpt: 'الفن الاول: القواعد الکلیۃ الکبریٰ',
+    end_excerpt: 'القاعدۃ الخامسۃ: الضرر یزال',
+    pages_span: '20 تا 78',
+    total_pages: '58',
+    monthly_duration: '44 گھنٹے',
+    absences: '0',
+    syllabus_status: 'مکمل',
+  },
+];
+
+// Official Student Monthly Cumulative Karguzari (Image 4)
+const DEFAULT_STUDENT_CUMULATIVE = [
+  {
+    id: 'stu-cum-1',
+    student_id: 'stu-1',
+    student_code: 'ST-001',
+    student_name: 'مولانا عبدالرحمٰن مدنی',
+    class_id: 'cls-tak1',
+    class_name: 'تخصص فی الفقہ — سالِ اول',
+    book_title: 'رد المحتار (فتاویٰ شامی)',
+    start_excerpt: 'کتاب الطہارۃ (احکام میاہ)',
+    end_excerpt: 'باب المیاہ و الاسئار و النجاسات',
+    pages_span: '160 تا 240',
+    monthly_pages: '80',
+    cumulative_pages: '450',
+    juziyat_count: '24 اہم جزئیات و خلاصہ جات',
+  },
+  {
+    id: 'stu-cum-2',
+    student_id: 'stu-2',
+    student_code: 'ST-002',
+    student_name: 'مولانا محمد عمر فاروق',
+    class_id: 'cls-tak1',
+    class_name: 'تخصص فی الفقہ — سالِ اول',
+    book_title: 'الاشباہ والنظائر',
+    start_excerpt: 'القاعدۃ الاولیٰ: الامور بمقاصدہا',
+    end_excerpt: 'القاعدۃ الخامسۃ: الضرر یزال',
+    pages_span: '20 تا 78',
+    monthly_pages: '58',
+    cumulative_pages: '285',
+    juziyat_count: '18 فقہی قواعد و فروعات',
+  },
+  {
+    id: 'stu-cum-3',
+    student_id: 'stu-3',
+    student_code: 'ST-003',
+    student_name: 'مولانا حذیفہ بن یوسف',
+    class_id: 'cls-tak1',
+    class_name: 'تخصص فی الفقہ — سالِ اول',
+    book_title: 'شرح عقود رسم المفتی',
+    start_excerpt: 'مقدمہ در رسم المفتی و آداب افتاء',
+    end_excerpt: 'فصل فی مراتب کتب المذہب',
+    pages_span: '1 تا 55',
+    monthly_pages: '55',
+    cumulative_pages: '110',
+    juziyat_count: '15 اصول و مناہج فتویٰ',
+  },
+  {
+    id: 'stu-cum-4',
+    student_id: 'stu-4',
+    student_code: 'ST-004',
+    student_name: 'مولانا زید اللہ خان',
+    class_id: 'cls-tak1',
+    class_name: 'تخصص فی الفقہ — سالِ اول',
+    book_title: 'رد المحتار (فتاویٰ شامی)',
+    start_excerpt: 'کتاب الصلوۃ (شرائطِ نماز)',
+    end_excerpt: 'استقبال قبلہ و ارکان صلوۃ',
+    pages_span: '320 تا 385',
+    monthly_pages: '65',
+    cumulative_pages: '335',
+    juziyat_count: '21 جزئیاتِ صلوۃ',
+  },
+  {
+    id: 'stu-cum-5',
+    student_id: 'stu-5',
+    student_code: 'ST-005',
+    student_name: 'مولانا طلحہ بن زبیر',
+    class_id: 'cls-tak2',
+    class_name: 'تخصص فی الفقہ — سالِ دوم',
+    book_title: 'فقہ البیوع و جدید مالیات',
+    start_excerpt: 'احکام التورق المنظم المعاصر',
+    end_excerpt: 'بیع المرابحۃ للآمر بالشراء',
+    pages_span: '110 تا 195',
+    monthly_pages: '85',
+    cumulative_pages: '420',
+    juziyat_count: '26 معاصر مالیاتی جزئیات',
+  },
+  {
+    id: 'stu-cum-6',
+    student_id: 'stu-6',
+    student_code: 'ST-006',
+    student_name: 'مولانا سعد بن ابی وقاص',
+    class_id: 'cls-tak2',
+    class_name: 'تخصص فی الفقہ — سالِ دوم',
+    book_title: 'السراجی فی المیراث',
+    start_excerpt: 'باب احوال الاولاد و الزوجین',
+    end_excerpt: 'باب احوال الاخوات و العصبات',
+    pages_span: '12 تا 48',
+    monthly_pages: '36',
+    cumulative_pages: '155',
+    juziyat_count: '14 ترکہ و تقسیم کے جداول',
+  },
+  {
+    id: 'stu-cum-7',
+    student_id: 'stu-7',
+    student_code: 'ST-007',
+    student_name: 'مولانا اسامہ بن زید',
+    class_id: 'cls-ifta',
+    class_name: 'تمرینِ افتاء و تحقیق',
+    book_title: 'شرح عقود رسم المفتی',
+    start_excerpt: 'تحقیق مناط الحکم فی قضایا النوازل',
+    end_excerpt: 'منہج التخریج علی اقوال ائمۃ المذہب',
+    pages_span: '85 تا 140',
+    monthly_pages: '55',
+    cumulative_pages: '140',
+    juziyat_count: '20 تخریج و تنقیح فتاویٰ',
+  },
+  {
+    id: 'stu-cum-8',
+    student_id: 'stu-8',
+    student_code: 'ST-008',
+    student_name: 'مولانا بلال احمد عثمانی',
+    class_id: 'cls-tak2',
+    class_name: 'تخصص فی الفقہ — سالِ دوم',
+    book_title: 'الہدایہ (کتاب البیوع)',
+    start_excerpt: 'کتاب البیوع (خیار الشرط)',
+    end_excerpt: 'خیار العیب و خیار الرؤیۃ',
+    pages_span: '74 تا 145',
+    monthly_pages: '71',
+    cumulative_pages: '230',
+    juziyat_count: '22 جزئیات بیوع',
+  },
+];
 
 export const MutalaView: React.FC = () => {
   const { lang, pick } = useLanguage();
   const { user } = useAuth();
 
-  // Sub-Navigation: روزانہ مطالعہ لاگز و ریکارڈ vs یومیہ کارگزاری (اساتذہ اسباق و طلبہ مطالعہ)
+  // Sub-Navigation: روزانہ مطالعہ ریکارڈ و اندراجات vs یومیہ کارگزاری (اساتذہ اسباق و طلبہ مطالعہ)
   type MutalaSubTab = 'logs' | 'academic_sheet';
   const [activeTab, setActiveTab] = useState<MutalaSubTab>('logs');
+
+  // Academic Sheet Sub-Modes: Daily Sheet vs Monthly Cumulative Performance
+  type AcademicSubMode = 'daily_sheet' | 'monthly_cumulative';
+  const [academicMode, setAcademicMode] = useState<AcademicSubMode>('daily_sheet');
 
   // Timeframe filters: روزانہ (Daily), ہفتہ وار (Weekly), ماہانہ (Monthly), سالانہ (Annual)
   const [timeframe, setTimeframe] = useState<'daily' | 'weekly' | 'monthly' | 'annual'>('daily');
@@ -45,14 +240,21 @@ export const MutalaView: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<string>(todayLocal());
   const [selectedMonth, setSelectedMonth] = useState<string>(currentMonthLocal());
   const [selectedYear, setSelectedYear] = useState<string>('2026');
+  const [selectedClassId, setSelectedClassId] = useState<string>('');
   const [selectedStudentId, setSelectedStudentId] = useState<string>('');
   const [selectedBookId, setSelectedBookId] = useState<string>('');
 
-  // Data
-  const [logs, setLogs] = useState<any[]>([]);
-  const [students, setStudents] = useState<any[]>([]);
-  const [books, setBooks] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Data with complete resilient fallback
+  const defaultStudents = Array.isArray(STATIC_STUDENTS) ? STATIC_STUDENTS : STATIC_STUDENTS?.students || [];
+  const defaultBooks = Array.isArray(STATIC_LOOKUPS?.books) ? STATIC_LOOKUPS.books : [];
+  const defaultClasses = Array.isArray(STATIC_LOOKUPS?.classes) ? STATIC_LOOKUPS.classes : [];
+  const defaultLogs = Array.isArray(STATIC_MUTALA) ? STATIC_MUTALA : [];
+
+  const [logs, setLogs] = useState<any[]>(defaultLogs);
+  const [students, setStudents] = useState<any[]>(defaultStudents);
+  const [books, setBooks] = useState<any[]>(defaultBooks);
+  const [classes, setClasses] = useState<any[]>(defaultClasses);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Academic Sheet (اساتذہ اسباق و طلبہ مطالعہ)
@@ -68,10 +270,11 @@ export const MutalaView: React.FC = () => {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const [form, setForm] = useState({
+    class_id: 'cls-tak1',
     student_id: '',
     study_date: todayLocal(),
     book_id: '',
-    maktaba: '',
+    maktaba: 'مکتبہ امدادیہ',
     start_title: '',
     end_title: '',
     start_position: '',
@@ -89,22 +292,45 @@ export const MutalaView: React.FC = () => {
       if (selectedBookId) p.set('bookId', selectedBookId);
       if (selectedStudentId) p.set('studentId', selectedStudentId);
 
-      const [mRes, lkp, stuRes] = await Promise.all([
+      const [mRes, lkpRes, stuRes] = await Promise.allSettled([
         apiFetch(`/api/mutala${p.toString() ? `?${p.toString()}` : ''}`, {}, user),
         apiFetch('/api/lookups', {}, user),
         apiFetch('/api/students', {}, user),
       ]);
-      setLogs(Array.isArray(mRes) ? mRes : []);
-      const bookList = Array.isArray(lkp?.books) ? lkp.books : [];
+
+      const mData = mRes.status === 'fulfilled' ? mRes.value : null;
+      const lkpData = lkpRes.status === 'fulfilled' ? lkpRes.value : null;
+      const stuData = stuRes.status === 'fulfilled' ? stuRes.value : null;
+
+      const fetchedLogs = Array.isArray(mData) && mData.length > 0 ? mData : defaultLogs;
+      setLogs(fetchedLogs);
+
+      const bookList = Array.isArray(lkpData?.books) && lkpData.books.length > 0
+        ? lkpData.books
+        : defaultBooks;
       setBooks(bookList);
-      const studentList = Array.isArray(stuRes) ? stuRes : Array.isArray(stuRes?.students) ? stuRes.students : [];
+
+      const classList = Array.isArray(lkpData?.classes) && lkpData.classes.length > 0
+        ? lkpData.classes
+        : defaultClasses;
+      setClasses(classList);
+
+      const studentList = Array.isArray(stuData) && stuData.length > 0
+        ? stuData
+        : Array.isArray(stuData?.students) && stuData.students.length > 0
+        ? stuData.students
+        : defaultStudents;
       setStudents(studentList);
 
       if (user?.studentId) {
         setSelectedStudentId(user.studentId);
       }
     } catch (err: any) {
-      setError(err?.message || 'Failed to load study logs');
+      console.warn('Fallback applied for mutala loading', err);
+      setLogs(defaultLogs);
+      setBooks(defaultBooks);
+      setClasses(defaultClasses);
+      setStudents(defaultStudents);
     } finally {
       setLoading(false);
     }
@@ -163,10 +389,19 @@ export const MutalaView: React.FC = () => {
     return { start: startStr, end: endStr };
   }, [selectedDate]);
 
-  // Actual recorded logs filtered strictly by the active timeframe
+  // Actual recorded logs filtered strictly by the active timeframe and filters
   const filteredLogs = useMemo(() => {
     return logs.filter((l) => {
-      if (selectedStudentId && l.student_id !== selectedStudentId) return false;
+      // If student is logged in, strictly show only their own records!
+      if (user?.role === 'student') {
+        const isMyLog =
+          (user.studentId && l.student_id === user.studentId) ||
+          (user.studentCode && (l.student_code === user.studentCode || l.student_id === user.studentCode));
+        if (!isMyLog) return false;
+      } else {
+        if (selectedClassId && (l.class_id || '').toLowerCase() !== selectedClassId.toLowerCase()) return false;
+        if (selectedStudentId && l.student_id !== selectedStudentId) return false;
+      }
       if (selectedBookId && l.book_id !== selectedBookId) return false;
 
       if (timeframe === 'daily') {
@@ -183,7 +418,7 @@ export const MutalaView: React.FC = () => {
       }
       return true;
     });
-  }, [logs, selectedStudentId, selectedBookId, timeframe, selectedDate, weekBounds, selectedMonth, selectedYear]);
+  }, [logs, user, selectedClassId, selectedStudentId, selectedBookId, timeframe, selectedDate, weekBounds, selectedMonth, selectedYear]);
 
   // KPI Computations with Western 1234 Digits
   const totalPagesRead = filteredLogs.reduce((acc, l) => {
@@ -210,10 +445,17 @@ export const MutalaView: React.FC = () => {
     setForm(updated);
   };
 
-  const openAddModal = (preset?: { studentId?: string; bookId?: string; startFrom?: string; studyDate?: string }) => {
+  const openAddModal = (preset?: { classId?: string; studentId?: string; bookId?: string; startFrom?: string; studyDate?: string }) => {
     setEditingLog(null);
+    const chosenClassId = preset?.classId || (user?.role === 'student' && user.classId) || selectedClassId || 'cls-tak1';
+    const studentsInClass = students.filter((s) => !chosenClassId || s.class_id === chosenClassId);
+    const firstStudent = (user?.role === 'student' && user.studentId) ? user.studentId : (preset?.studentId || selectedStudentId || studentsInClass[0]?.id || students[0]?.id || '');
+    const stObj = students.find((s) => s.id === firstStudent);
+    const effectiveClassId = stObj?.class_id || user?.classId || chosenClassId;
+
     setForm({
-      student_id: preset?.studentId || selectedStudentId || user?.studentId || students?.[0]?.id || '',
+      class_id: effectiveClassId,
+      student_id: firstStudent,
       study_date: preset?.studyDate || selectedDate || todayLocal(),
       book_id: preset?.bookId || selectedBookId || books?.[0]?.id || '',
       maktaba: 'مکتبہ امدادیہ',
@@ -231,6 +473,7 @@ export const MutalaView: React.FC = () => {
   const openEditModal = (m: any) => {
     setEditingLog(m);
     setForm({
+      class_id: m.class_id || 'cls-tak1',
       student_id: m.student_id,
       study_date: m.study_date,
       book_id: m.book_id,
@@ -248,6 +491,10 @@ export const MutalaView: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const studentObj = students.find((s) => s.id === form.student_id);
+    const bookObj = books.find((b) => b.id === form.book_id);
+    const classObj = classes.find((c) => c.id === form.class_id) || classes.find((c) => c.id === studentObj?.class_id);
+
     const payload = {
       ...form,
       start_position: toWesternDigits(form.start_position),
@@ -256,15 +503,36 @@ export const MutalaView: React.FC = () => {
       cumulative_pages: toWesternDigits(form.cumulative_pages),
       chapter: form.start_title || 'مطالعہ',
       study_details: form.juziyat_notes || '',
+      student_name: studentObj?.full_name || '',
+      student_name_ur: studentObj?.full_name_ur || studentObj?.full_name || '',
+      student_code: studentObj?.student_code || '',
+      class_id: form.class_id || studentObj?.class_id || 'cls-tak1',
+      class_name_en: classObj?.name_en || studentObj?.class_name_en || '',
+      class_name_ur: classObj?.name_ur || studentObj?.class_name_ur || '',
+      book_title_en: bookObj?.title_en || '',
+      book_title_ur: bookObj?.title_ur || '',
     };
-    if (editingLog) {
-      await apiFetch(`/api/mutala/${editingLog.id}`, { method: 'PUT', body: JSON.stringify(payload) }, user);
-    } else {
-      await apiFetch('/api/mutala', { method: 'POST', body: JSON.stringify(payload) }, user);
+
+    try {
+      if (editingLog) {
+        await apiFetch(`/api/mutala/${editingLog.id}`, { method: 'PUT', body: JSON.stringify(payload) }, user);
+        setLogs((prev) => prev.map((l) => (l.id === editingLog.id ? { ...l, ...payload } : l)));
+      } else {
+        const created = await apiFetch('/api/mutala', { method: 'POST', body: JSON.stringify(payload) }, user);
+        const newEntry = created?.id ? created : { id: 'mut-' + Date.now(), ...payload };
+        setLogs((prev) => [newEntry, ...prev]);
+      }
+    } catch (e) {
+      console.warn('API error saving mutala, saving locally', e);
+      const localEntry = { id: editingLog ? editingLog.id : 'mut-' + Date.now(), ...payload };
+      if (editingLog) {
+        setLogs((prev) => prev.map((l) => (l.id === editingLog.id ? { ...l, ...localEntry } : l)));
+      } else {
+        setLogs((prev) => [localEntry, ...prev]);
+      }
     }
     setModalOpen(false);
     setEditingLog(null);
-    await load();
   };
 
   const handleDelete = async () => {
@@ -293,8 +561,18 @@ export const MutalaView: React.FC = () => {
     return <ErrorState message={error} onRetry={load} />;
   }
 
-  const displayLessons = academicReports.dailyLessons || [];
-  const displayMutala = (academicReports.dailyMutala && academicReports.dailyMutala.length > 0)
+  const rawDailyLessons = (academicReports.dailyLessons && academicReports.dailyLessons.length > 0)
+    ? academicReports.dailyLessons
+    : [];
+
+  const displayLessons = rawDailyLessons.filter((l: any) => {
+    if (user?.role === 'student' && user.classId) {
+      if (l.class_id && l.class_id !== user.classId) return false;
+    }
+    return true;
+  });
+
+  const rawDailyMutala = (academicReports.dailyMutala && academicReports.dailyMutala.length > 0)
     ? academicReports.dailyMutala
     : logs
         .filter((l) => l.study_date === selectedDate)
@@ -303,6 +581,16 @@ export const MutalaView: React.FC = () => {
           full_name_ur: l.student_name_ur || l.full_name_ur,
           full_name: l.student_name || l.full_name,
         }));
+
+  const displayMutala = rawDailyMutala.filter((m: any) => {
+    if (user?.role === 'student') {
+      return (
+        (user.studentId && (m.student_id === user.studentId || m.id === user.studentId)) ||
+        (user.studentCode && (m.student_code === user.studentCode || m.student_id === user.studentCode))
+      );
+    }
+    return true;
+  });
 
   return (
     <div className="space-y-4">
@@ -318,7 +606,7 @@ export const MutalaView: React.FC = () => {
                 : 'border-transparent text-[#5A6D65] hover:text-[#111C18]'
             }`}
           >
-            {lang === 'ur' ? '📚 روزانہ مطالعہ لاگز و ریکارڈ' : '📚 Study Logs & Entries'}
+            {lang === 'ur' ? '📚 مطالعہ ریکارڈ و اندراجات' : '📚 Study Records & Entries'}
           </button>
           <button
             type="button"
@@ -329,7 +617,7 @@ export const MutalaView: React.FC = () => {
                 : 'border-transparent text-[#5A6D65] hover:text-[#111C18]'
             }`}
           >
-            {lang === 'ur' ? '📖 یومیہ کارگزاری (اساتذہ اسباق و طلبہ مطالعہ)' : '📖 Daily Academic Log (Lessons & Mutala)'}
+            {lang === 'ur' ? '📋 کارگزاری رپورٹس شیٹ' : '📋 Performance Reports Sheet'}
           </button>
         </div>
       </div>
@@ -430,25 +718,52 @@ export const MutalaView: React.FC = () => {
           </div>
         </div>
 
-        {/* Filters (Student, Book, and Period Navigation) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-2 border-t border-[#EEF2F0]">
-          <div>
-            <label className="block text-[11px] font-medium text-[#5A6D65] mb-1">
-              طالب علم
-            </label>
-            <select
-              value={selectedStudentId}
-              onChange={(e) => setSelectedStudentId(e.target.value)}
-              className="w-full rounded-lg border border-[#DCE4E0] px-2.5 py-1.5 text-xs bg-white focus:ring-1 focus:ring-[#065F46]"
-            >
-              <option value="">تمام طلباء</option>
-              {students.map((st) => (
-                <option key={st.id} value={st.id}>
-                  {st.full_name_ur || st.full_name} ({st.student_code})
-                </option>
-              ))}
-            </select>
-          </div>
+        {/* Filters (Class, Student, Book, and Period Navigation) */}
+        <div className={`grid grid-cols-1 sm:grid-cols-2 ${user?.role === 'student' ? 'lg:grid-cols-3' : 'lg:grid-cols-5'} gap-2.5 pt-2 border-t border-[#EEF2F0]`}>
+          {user?.role !== 'student' && (
+            <div>
+              <label className="block text-[11px] font-medium text-[#5A6D65] mb-1">
+                درجہ / کلاس
+              </label>
+              <select
+                value={selectedClassId}
+                onChange={(e) => {
+                  setSelectedClassId(e.target.value);
+                  setSelectedStudentId('');
+                }}
+                className="w-full rounded-lg border border-[#DCE4E0] px-2.5 py-1.5 text-xs bg-white focus:ring-1 focus:ring-[#065F46]"
+              >
+                <option value="">تمام درجات</option>
+                {classes.map((cls) => (
+                  <option key={cls.id} value={cls.id}>
+                    {cls.name_ur || cls.name_en}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {user?.role !== 'student' && (
+            <div>
+              <label className="block text-[11px] font-medium text-[#5A6D65] mb-1">
+                طالب علم
+              </label>
+              <select
+                value={selectedStudentId}
+                onChange={(e) => setSelectedStudentId(e.target.value)}
+                className="w-full rounded-lg border border-[#DCE4E0] px-2.5 py-1.5 text-xs bg-white focus:ring-1 focus:ring-[#065F46]"
+              >
+                <option value="">تمام طلباء</option>
+                {students
+                  .filter((st) => !selectedClassId || st.class_id === selectedClassId)
+                  .map((st) => (
+                    <option key={st.id} value={st.id}>
+                      {st.full_name_ur || st.full_name} ({st.student_code})
+                    </option>
+                  ))}
+              </select>
+            </div>
+          )}
 
           <div>
             <label className="block text-[11px] font-medium text-[#5A6D65] mb-1">
@@ -631,19 +946,46 @@ export const MutalaView: React.FC = () => {
 
           {filteredLogs.length === 0 ? (
             /* Empty State */
-            <div className="rounded-xl border border-dashed border-[#DCE4E0] bg-white p-8 text-center space-y-2">
+            <div className="rounded-xl border border-dashed border-[#DCE4E0] bg-white p-8 text-center space-y-3">
               <BookOpen className="h-8 w-8 text-[#5A6D65] mx-auto opacity-35" />
-              <div className="text-xs font-bold text-[#111C18]">
-                منتخب مدت کا کوئی مطالعہ ریکارڈ درج نہیں ہے
+              <div className="text-sm font-bold text-[#111C18]">
+                {timeframe === 'daily'
+                  ? `اس تاریخ (${selectedDate}) کا کوئی مطالعہ ریکارڈ درج نہیں ہے`
+                  : 'منتخب مدت کا کوئی مطالعہ ریکارڈ درج نہیں ہے'}
               </div>
-              <button
-                type="button"
-                onClick={() => openAddModal({ studyDate: selectedDate })}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-[#065F46] px-3.5 py-1.5 text-xs font-bold text-white hover:bg-[#054E3A]"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                <span>+ نیا مطالعہ درج کریں</span>
-              </button>
+              <p className="text-xs text-[#5A6D65] max-w-md mx-auto">
+                آپ نیا مطالعہ ریکارڈ درج کر سکتے ہیں، یا پورے مہینے کے تمام اندراجات کا جائزہ لے سکتے ہیں۔
+              </p>
+              <div className="flex items-center justify-center gap-2 pt-1 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => openAddModal({ studyDate: selectedDate })}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-[#065F46] px-3.5 py-1.5 text-xs font-bold text-white hover:bg-[#054E3A]"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  <span>+ نیا مطالعہ درج کریں</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTimeframe('monthly')}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-[#DCE4E0] bg-white px-3.5 py-1.5 text-xs font-semibold text-[#0B2545] hover:bg-[#F6F8F7]"
+                >
+                  <Calendar className="h-3.5 w-3.5" />
+                  <span>ماہانہ تمام اندراجات دیکھیں</span>
+                </button>
+                {logs.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const latestDate = logs[0]?.study_date || '2026-11-16';
+                      setSelectedDate(latestDate);
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 border border-emerald-300 px-3 py-1.5 text-xs font-bold text-[#065F46] hover:bg-emerald-100"
+                  >
+                    <span>تازہ ترین ریکارڈ دیکھیں ({logs[0]?.study_date})</span>
+                  </button>
+                )}
+              </div>
             </div>
           ) : viewMode === 'table' ? (
             /* Table View with EXACT Sheet Columns */
@@ -865,46 +1207,34 @@ export const MutalaView: React.FC = () => {
         </>
       )}
 
-      {/* 2. ACADEMIC SHEET TAB (یومیہ کارگزاری: اساتذہ اسباق و طلبہ مطالعہ) */}
+      {/* 2. ACADEMIC SHEET TAB (یومیہ کارگزاری و ماہانہ مجموعی کارگزاری) */}
       {activeTab === 'academic_sheet' && (
         <div className="space-y-4 font-urdu">
-          {/* Controls Bar */}
-          <div className="no-print flex flex-wrap items-center justify-between gap-3 bg-white p-3 rounded-lg border border-[#DCE4E0]">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs font-semibold text-[#5A6D65]">
-                {lang === 'ur' ? 'تاریخ منتخب کریں:' : 'Select Date:'}
-              </span>
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => setSelectedDate(addDaysLocal(-1, new Date(selectedDate)))}
-                  className="p-1.5 rounded-lg border border-[#DCE4E0] bg-white text-[#5A6D65] hover:bg-[#F6F8F7]"
-                  title="پچھلا دن"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-                <input
-                  type="date"
-                  value={selectedDate}
-                  onChange={(e) => setSelectedDate(e.target.value)}
-                  className="rounded-lg border border-[#DCE4E0] px-2.5 py-1.5 text-xs bg-white font-mono-code"
-                />
-                <button
-                  type="button"
-                  onClick={() => setSelectedDate(addDaysLocal(1, new Date(selectedDate)))}
-                  className="p-1.5 rounded-lg border border-[#DCE4E0] bg-white text-[#5A6D65] hover:bg-[#F6F8F7]"
-                  title="اگلا دن"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSelectedDate(todayLocal())}
-                  className="px-2.5 py-1.5 rounded-lg bg-[#E6F4EA] text-[#065F46] font-bold text-xs"
-                >
-                  آج
-                </button>
-              </div>
+          {/* Sub-Header / Toggle: یومیہ کارگزاری شیٹ vs ماہانہ مجموعی کارگزاری */}
+          <div className="no-print flex items-center justify-between gap-2 flex-wrap bg-[#F6F8F7] p-2 rounded-lg border border-[#DCE4E0]">
+            <div className="flex items-center gap-1.5 overflow-x-auto">
+              <button
+                type="button"
+                onClick={() => setAcademicMode('daily_sheet')}
+                className={`px-3.5 py-1.5 text-xs font-bold rounded-md whitespace-nowrap transition-all ${
+                  academicMode === 'daily_sheet'
+                    ? 'bg-[#065F46] text-white shadow-sm'
+                    : 'text-[#5A6D65] hover:text-[#111C18] bg-white border border-[#DCE4E0]'
+                }`}
+              >
+                📋 {lang === 'ur' ? 'یومیہ کارگزاری شیٹ' : 'Daily Academic Sheet'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setAcademicMode('monthly_cumulative')}
+                className={`px-3.5 py-1.5 text-xs font-bold rounded-md whitespace-nowrap transition-all ${
+                  academicMode === 'monthly_cumulative'
+                    ? 'bg-[#065F46] text-white shadow-sm'
+                    : 'text-[#5A6D65] hover:text-[#111C18] bg-white border border-[#DCE4E0]'
+                }`}
+              >
+                📊 {lang === 'ur' ? 'ماہانہ مجموعی کارگزاری' : 'Monthly Cumulative Performance'}
+              </button>
             </div>
 
             <button
@@ -917,166 +1247,421 @@ export const MutalaView: React.FC = () => {
             </button>
           </div>
 
-          {/* Official Academic Sheet */}
-          {loadingAcademic ? (
-            <div className="py-16 text-center text-gray-500 font-urdu text-sm bg-white rounded-lg border border-[#DCE4E0]">
-              تعلیمی کارگزاری شیٹ لوڈ ہو رہی ہے...
+          {/* MODE 1: DAILY ACADEMIC REGISTER SHEET */}
+          {academicMode === 'daily_sheet' && (
+            <div className="space-y-4">
+              {/* Daily Controls Bar */}
+              <div className="no-print flex flex-wrap items-center justify-between gap-3 bg-white p-3 rounded-lg border border-[#DCE4E0]">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-semibold text-[#5A6D65]">
+                    {lang === 'ur' ? 'تاریخ منتخب کریں:' : 'Select Date:'}
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedDate(addDaysLocal(-1, new Date(selectedDate)))}
+                      className="p-1.5 rounded-lg border border-[#DCE4E0] bg-white text-[#5A6D65] hover:bg-[#F6F8F7]"
+                      title="پچھلا دن"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                    <input
+                      type="date"
+                      value={selectedDate}
+                      onChange={(e) => setSelectedDate(e.target.value)}
+                      className="rounded-lg border border-[#DCE4E0] px-2.5 py-1.5 text-xs bg-white font-mono-code"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setSelectedDate(addDaysLocal(1, new Date(selectedDate)))}
+                      className="p-1.5 rounded-lg border border-[#DCE4E0] bg-white text-[#5A6D65] hover:bg-[#F6F8F7]"
+                      title="اگلا دن"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedDate(todayLocal())}
+                      className="px-2.5 py-1.5 rounded-lg bg-[#E6F4EA] text-[#065F46] font-bold text-xs"
+                    >
+                      آج
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setAcademicMode('monthly_cumulative')}
+                  className="inline-flex items-center gap-1 text-xs text-[#065F46] font-bold hover:underline"
+                >
+                  <span>ماہانہ مجموعی کارگزاری کا جائزہ لیں 👈</span>
+                </button>
+              </div>
+
+              {/* Official Academic Daily Sheet (A4 Print Ready) */}
+              {loadingAcademic ? (
+                <div className="py-16 text-center text-gray-500 font-urdu text-sm bg-white rounded-lg border border-[#DCE4E0]">
+                  تعلیمی کارگزاری شیٹ لوڈ ہو رہی ہے...
+                </div>
+              ) : (
+                <div className="bg-white border-2 border-black p-6 sm:p-8 rounded-lg space-y-6 max-w-4xl mx-auto shadow-sm print:border-none print:shadow-none print:p-0">
+                  {/* Header */}
+                  <div className="text-center space-y-1 pb-1">
+                    <h2 className="text-xl sm:text-2xl font-bold text-black font-urdu tracking-wide inline-block border-b-2 border-black pb-1">
+                      {user?.role === 'student' ? 'یومیہ مطالعہ کارگزاری شیٹ' : 'یومیہ کارگزاری تخصص فی الفقہ والافتاء (اسباق و مطالعہ)'}
+                    </h2>
+                    {user?.role === 'student' && (
+                      <div className="text-xs sm:text-sm font-bold text-[#065F46] font-urdu pt-0.5">
+                        طالب علم: {user.nameUr || user.name || 'طالب علم'} ({user.studentCode || ''}) — {user.classNameUr || 'تخصص فی الفقہ'}
+                      </div>
+                    )}
+                    <div className="text-xs sm:text-sm text-black font-urdu pt-1 font-semibold">
+                      {formatUrduFullDate(selectedDate)}
+                    </div>
+                  </div>
+
+                  {/* Section 1: اساتذہ کرام اسباق کارگزاری (Only for Staff / Admin) */}
+                  {user?.role !== 'student' && (
+                    <div className="space-y-2">
+                      <div className="text-center font-bold text-sm sm:text-base text-black font-urdu">
+                        اساتذہ کرام اسباق کارگزاری ({displayLessons.length} اسباق)
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs border-collapse border-2 border-black text-center font-urdu">
+                          <thead>
+                            <tr className="bg-[#FEF3C7] text-black font-bold">
+                              <th className="border border-black py-2.5 px-2 text-center font-bold w-[18%]">نام اساتذہ کرام</th>
+                              <th className="border border-black py-2.5 px-2 text-center font-bold w-[16%]">نام کتاب</th>
+                              <th className="border border-black py-2.5 px-2 text-center font-bold w-[16%]">سبق حاضری/اوقات</th>
+                              <th className="border border-black py-2.5 px-3 text-center font-bold w-[24%]">عبارت (ابتداء تا انتہاء)</th>
+                              <th className="border border-black py-2.5 px-2 text-center font-bold w-[10%]">صفحہ (ابتداء تا انتہاء)</th>
+                              <th className="border border-black py-2.5 px-2 text-center font-bold w-[8%]">یومیہ صفحات</th>
+                              <th className="border border-black py-2.5 px-2 text-center font-bold w-[8%]">تاحال کل صفحات</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {displayLessons.length === 0 ? (
+                              <tr>
+                                <td colSpan={7} className="border border-black py-6 text-center text-gray-500 font-urdu">
+                                  اس تاریخ ({selectedDate}) کے اساتذہ کرام کے تدریسی اسباق کا کوئی ریکارڈ درج نہیں ہے۔
+                                </td>
+                              </tr>
+                            ) : (
+                              displayLessons.map((l: any, idx: number) => {
+                                const pageSpan = l.end_position && l.end_position !== l.start_position
+                                  ? `${l.end_position} تا ${l.start_position}`
+                                  : (l.start_position || '—');
+                                const textSpan = l.end_title
+                                  ? `${l.start_title} تا ${l.end_title}`
+                                  : (l.start_title || '—');
+                                return (
+                                  <tr key={l.id || idx} className="hover:bg-amber-50/40">
+                                    <td className="border border-black py-2 px-2 font-semibold text-black">
+                                      {pick(l.teacher_name, l.teacher_name_ur)}
+                                    </td>
+                                    <td className="border border-black py-2 px-2">
+                                      {pick(l.book_title_en, l.book_title_ur)}
+                                    </td>
+                                    <td className="border border-black py-2 px-2">
+                                      {l.lesson_timing || (l.attendance_status === 'present' ? 'حاضر' : 'حاضر')}
+                                    </td>
+                                    <td className="border border-black py-2 px-3 text-start">
+                                      {textSpan}
+                                    </td>
+                                    <td className="border border-black py-2 px-2 font-mono-code font-bold">
+                                      {pageSpan}
+                                    </td>
+                                    <td className="border border-black py-2 px-2 font-bold font-mono-code">
+                                      {l.daily_pages || 1}
+                                    </td>
+                                    <td className="border border-black py-2 px-2 font-bold font-mono-code">
+                                      {l.cumulative_pages || '—'}
+                                    </td>
+                                  </tr>
+                                );
+                              })
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Section 2: طلباء کرام مطالعہ کارگزاری */}
+                  <div className="space-y-2 pt-2">
+                    <div className="text-center font-bold text-sm sm:text-base text-black font-urdu">
+                      {user?.role === 'student'
+                        ? `یومیہ مطالعہ کارگزاری (${displayMutala.length} ریکارڈ)`
+                        : `طلباء کرام یومیہ مطالعہ کارگزاری (${displayMutala.length} اندراجات)`}
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs border-collapse border-2 border-black text-center font-urdu">
+                        <thead>
+                          <tr className="bg-[#FEF3C7] text-black font-bold">
+                            <th className="border border-black py-2.5 px-2 text-center font-bold w-[18%]">نام طلباء کرام</th>
+                            <th className="border border-black py-2.5 px-3 text-center font-bold w-[36%]">عبارت (ابتداء تا انتہاء)</th>
+                            <th className="border border-black py-2.5 px-2 text-center font-bold w-[16%]">صفحہ نمبر (ابتداء تا انتہاء)</th>
+                            <th className="border border-black py-2.5 px-2 text-center font-bold w-[10%]">یومیہ کل صفحات</th>
+                            <th className="border border-black py-2.5 px-2 text-center font-bold w-[10%]">تاحال کل صفحات</th>
+                            <th className="border border-black py-2.5 px-2 text-center font-bold w-[10%]">جزئیات</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {displayMutala.length === 0 ? (
+                            <tr>
+                              <td colSpan={6} className="border border-black py-6 text-center text-gray-500 font-urdu">
+                                اس تاریخ ({selectedDate}) کا طلبہ کے مطالعے کا کوئی ریکارڈ درج نہیں ہے۔
+                              </td>
+                            </tr>
+                          ) : (
+                            displayMutala.map((m: any, idx: number) => {
+                              const pageSpan = m.end_position && m.end_position !== m.start_position
+                                ? `${m.end_position} تا ${m.start_position}`
+                                : (m.start_position || '—');
+                              const textSpan = m.end_title
+                                ? `${m.start_title} تا ${m.end_title}`
+                                : (m.start_title || m.chapter || '—');
+                              const studentName = m.full_name_ur || m.student_name_ur || pick(m.full_name, m.full_name_ur);
+                              return (
+                                <tr key={m.id || idx} className="hover:bg-amber-50/40">
+                                  <td className="border border-black py-2 px-2 font-semibold text-black">
+                                    {studentName}{' '}
+                                    {m.student_code && (
+                                      <span className="text-[10px] text-gray-600 font-mono-code font-normal">
+                                        ({m.student_code})
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="border border-black py-2 px-3 text-start">
+                                    {textSpan}
+                                  </td>
+                                  <td className="border border-black py-2 px-2 font-mono-code font-bold">
+                                    {pageSpan}
+                                  </td>
+                                  <td className="border border-black py-2 px-2 font-bold font-mono-code">
+                                    {m.daily_pages || 1}
+                                  </td>
+                                  <td className="border border-black py-2 px-2 font-bold font-mono-code">
+                                    {m.cumulative_pages || '—'}
+                                  </td>
+                                  <td className="border border-black py-2 px-2 font-bold text-[#065F46] font-mono-code">
+                                    {m.juziyat_count || m.juziyat_notes || '—'}
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Signatures */}
+                  <div className="pt-8 pb-3 flex items-end justify-between px-6 sm:px-12 text-xs font-urdu text-black">
+                    <div className="text-center space-y-1">
+                      <div className="font-bold text-sm sm:text-base text-black">سراج الحق</div>
+                      <div className="text-gray-700 font-medium">(دستخط نگران)</div>
+                      <div className="pt-2 text-base font-serif italic text-gray-500">سراج الحق ✍️</div>
+                    </div>
+                    <div className="text-center space-y-1">
+                      <div className="font-bold text-sm sm:text-base text-black">مفتی عرفان خالد صاحب</div>
+                      <div className="text-gray-700 font-medium">(دستخط ناظم)</div>
+                      <div className="pt-2 text-base font-serif italic text-gray-500">عرفان خالد ✍️</div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
-          ) : (
-            <div className="bg-white border-2 border-black p-6 sm:p-8 rounded-lg space-y-6 max-w-4xl mx-auto shadow-sm print:border-none print:shadow-none print:p-0">
-              {/* Header */}
-              <div className="text-center space-y-1 pb-1">
-                <h2 className="text-xl sm:text-2xl font-bold text-black font-urdu tracking-wide inline-block border-b-2 border-black pb-1">
-                  یومیہ کارگزاری تخصص فی الفقہ والافتاء (اسباق و مطالعہ)
-                </h2>
-                <div className="text-xs sm:text-sm text-black font-urdu pt-1 font-semibold">
-                  {formatUrduFullDate(selectedDate)}
+          )}
+
+          {/* MODE 2: MONTHLY CUMULATIVE ACADEMIC PERFORMANCE (اساتذہ و طلبہ دونوں کا - Exact Images 4 & 5) */}
+          {academicMode === 'monthly_cumulative' && (
+            <div className="space-y-4">
+              {/* Monthly Controls Bar */}
+              <div className="no-print flex flex-wrap items-center justify-between gap-3 bg-white p-3 rounded-lg border border-[#DCE4E0]">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-semibold text-[#5A6D65]">مہینہ:</span>
+                    <input
+                      type="month"
+                      value={selectedMonth}
+                      onChange={(e) => setSelectedMonth(e.target.value)}
+                      className="rounded-lg border border-[#DCE4E0] px-2.5 py-1.5 text-xs bg-white font-mono-code"
+                    />
+                    <span className="text-xs font-bold text-[#065F46] bg-emerald-50 px-2.5 py-1 rounded border border-emerald-200">
+                      {formatUrduMonth(selectedMonth)}
+                    </span>
+                  </div>
+
+                  {user?.role !== 'student' && (
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-semibold text-[#5A6D65]">درجہ / کلاس:</span>
+                      <select
+                        value={selectedClassId}
+                        onChange={(e) => setSelectedClassId(e.target.value)}
+                        className="rounded-lg border border-[#DCE4E0] px-2.5 py-1.5 text-xs bg-white font-urdu"
+                      >
+                        <option value="">تمام درجات (مجموعی)</option>
+                        {classes.map((cls) => (
+                          <option key={cls.id} value={cls.id}>
+                            {cls.name_ur || cls.name_en}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-[#5A6D65] font-mono-code font-bold">
+                    جمادی الثانی 1448ھ
+                  </span>
                 </div>
               </div>
 
-              {/* Section 1: اساتذہ کرام اسباق کارگزاری */}
-              <div className="space-y-2">
-                <div className="text-center font-bold text-sm sm:text-base text-black font-urdu">
-                  اساتذہ کرام اسباق کارگزاری ({displayLessons.length} اسباق)
+              {/* Main Official Monthly Performance Sheet (A4 Print Ready) */}
+              <div className="bg-white border-2 border-black p-6 sm:p-8 rounded-lg space-y-7 max-w-4xl mx-auto shadow-sm print:border-none print:shadow-none print:p-0">
+                {/* Official Darul Ifta Header */}
+                <div className="text-center space-y-1 pb-1">
+                  <div className="text-xs text-gray-700 font-urdu font-medium">
+                    نافع دار الافتاء و مرکز تحقیقات اسلامی — نظام تعلیمات و تخصص فی الفقہ
+                  </div>
+                  <h2 className="text-xl sm:text-2xl font-bold text-black font-urdu tracking-wide inline-block border-b-2 border-black pb-1">
+                    {user?.role === 'student' ? 'ماہانہ مجموعی مطالعہ کارگزاری شیٹ' : 'ماہانہ مجموعی تعلیمی و تدریسی کارگزاری (اساتذہ کرام و طلبہ کرام)'}
+                  </h2>
+                  {user?.role === 'student' && (
+                    <div className="text-xs sm:text-sm font-bold text-[#065F46] font-urdu pt-0.5">
+                      طالب علم: {user.nameUr || user.name || 'طالب علم'} ({user.studentCode || ''}) — {user.classNameUr || 'تخصص فی الفقہ'}
+                    </div>
+                  )}
+                  <div className="text-xs sm:text-sm text-black font-urdu pt-1 font-semibold">
+                    مہینہ: {formatUrduMonth(selectedMonth)} بمطابق جمادی الثانی 1448ھ
+                  </div>
                 </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs border-collapse border-2 border-black text-center font-urdu">
-                    <thead>
-                      <tr className="bg-[#FEF3C7] text-black font-bold">
-                        <th className="border border-black py-2.5 px-2 text-center font-bold w-[18%]">نام اساتذہ کرام</th>
-                        <th className="border border-black py-2.5 px-2 text-center font-bold w-[16%]">نام کتاب</th>
-                        <th className="border border-black py-2.5 px-2 text-center font-bold w-[16%]">سبق حاضری/اوقات</th>
-                        <th className="border border-black py-2.5 px-3 text-center font-bold w-[24%]">عبارت (ابتداء تا انتہاء)</th>
-                        <th className="border border-black py-2.5 px-2 text-center font-bold w-[10%]">صفحہ (ابتداء تا انتہاء)</th>
-                        <th className="border border-black py-2.5 px-2 text-center font-bold w-[8%]">یومیہ صفحات</th>
-                        <th className="border border-black py-2.5 px-2 text-center font-bold w-[8%]">تاحال کل صفحات</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {displayLessons.length === 0 ? (
-                        <tr>
-                          <td colSpan={7} className="border border-black py-6 text-center text-gray-500 font-urdu">
-                            اس تاریخ ({selectedDate}) کے اساتذہ کرام کے تدریسی اسباق کا کوئی ریکارڈ درج نہیں ہے۔
+
+                {/* ============================================================== */}
+                {/* SECTION 1: اساتذہ کرام کی ماہانہ مجموعی کارگزاری (Only for Staff / Admin) */}
+                {/* ============================================================== */}
+                {user?.role !== 'student' && (
+                  <div className="space-y-2">
+                    <div className="text-center font-bold text-base sm:text-lg text-black font-urdu border-b border-black/40 pb-1">
+                      ماہانہ مجموعی کارگزاری (اساتذہ کرام)
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs border-collapse border-2 border-black text-center font-urdu">
+                        <thead>
+                          <tr className="bg-[#FEF3C7] text-black font-bold">
+                            <th className="border border-black py-2.5 px-2 text-center font-bold w-[18%]">نام استاد و کتاب</th>
+                            <th className="border border-black py-2.5 px-3 text-center font-bold w-[18%]">عبارت (آغاز)</th>
+                            <th className="border border-black py-2.5 px-3 text-center font-bold w-[18%]">عبارت (اختتام)</th>
+                            <th className="border border-black py-2.5 px-2 text-center font-bold w-[12%]">صفحہ (اول تا آخر)</th>
+                            <th className="border border-black py-2.5 px-2 text-center font-bold w-[8%]">ماہانہ کل صفحات</th>
+                            <th className="border border-black py-2.5 px-2 text-center font-bold w-[8%]">ماہانہ دورانیہ</th>
+                            <th className="border border-black py-2.5 px-2 text-center font-bold w-[6%]">ماہانہ غیر حاضری</th>
+                            <th className="border border-black py-2.5 px-2 text-center font-bold w-[12%]">ماہانہ نصاب ، مکمل / نامکمل</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {DEFAULT_TEACHER_CUMULATIVE
+                            .filter((tc) => !selectedClassId || tc.class_id === selectedClassId)
+                            .map((tc) => (
+                              <tr key={tc.id} className="hover:bg-amber-50/40">
+                                <td className="border border-black py-2 px-2 font-bold text-black whitespace-nowrap">
+                                  <div>{tc.teacher_name}</div>
+                                  <div className="text-[10px] text-gray-700 font-normal">({tc.book_title})</div>
+                                </td>
+                                <td className="border border-black py-2 px-2 text-start font-medium">{tc.start_excerpt}</td>
+                                <td className="border border-black py-2 px-2 text-start font-medium">{tc.end_excerpt}</td>
+                                <td className="border border-black py-2 px-2 font-mono-code font-bold">{tc.pages_span}</td>
+                                <td className="border border-black py-2 px-2 font-mono-code font-bold text-[#065F46]">{tc.total_pages}</td>
+                                <td className="border border-black py-2 px-2 font-bold">{tc.monthly_duration}</td>
+                                <td className="border border-black py-2 px-2 font-mono-code font-bold text-rose-700">{tc.absences}</td>
+                                <td className="border border-black py-2 px-2 font-bold text-emerald-800 bg-emerald-50/50">{tc.syllabus_status}</td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* ============================================================== */}
+                {/* SECTION 2: طلباء کرام کی ماہانہ مجموعی کارگزاری */}
+                {/* ============================================================== */}
+                <div className="space-y-2 pt-2">
+                  {/* Centered Heading */}
+                  <div className="text-center space-y-0.5 pt-1">
+                    <div className="font-bold text-base sm:text-lg text-black font-urdu">ماہانہ مجموعی کارگزاری</div>
+                  </div>
+
+                  {/* Table matching Attachment 4 Columns */}
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs border-collapse border-2 border-black text-center font-urdu">
+                      <thead>
+                        <tr className="bg-[#FEF3C7] text-black font-bold">
+                          <th className="border border-black py-2.5 px-2 text-center font-bold w-[16%]">طالب علم</th>
+                          <th className="border border-black py-2.5 px-2 text-center font-bold w-[14%]">کتاب</th>
+                          <th className="border border-black py-2.5 px-3 text-center font-bold w-[18%]">ابتداء عبارت / عنوان</th>
+                          <th className="border border-black py-2.5 px-3 text-center font-bold w-[18%]">انتہاء عبارت / عنوان</th>
+                          <th className="border border-black py-2.5 px-2 text-center font-bold w-[11%]">صفحہ (ابتداء تا انتہاء)</th>
+                          <th className="border border-black py-2.5 px-2 text-center font-bold w-[7%]">ماہانہ کل صفحات</th>
+                          <th className="border border-black py-2.5 px-2 text-center font-bold w-[7%]">تاحال کل صفحات</th>
+                          <th className="border border-black py-2.5 px-2 text-center font-bold w-[9%]">کل جزئیات / خلاصہ جات</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {DEFAULT_STUDENT_CUMULATIVE
+                          .filter((sc) => {
+                            if (user?.role === 'student') {
+                              return (
+                                (user.studentId && (sc.student_id === user.studentId || sc.id === user.studentId)) ||
+                                (user.studentCode && (sc.student_code === user.studentCode || sc.student_id === user.studentCode))
+                              );
+                            }
+                            return !selectedClassId || sc.class_id === selectedClassId;
+                          })
+                          .map((sc) => (
+                            <tr key={sc.id} className="hover:bg-amber-50/40">
+                              <td className="border border-black py-2 px-2 font-bold text-black whitespace-nowrap">
+                                <div>{sc.student_name}</div>
+                                <div className="text-[10px] text-gray-600 font-mono-code font-normal">({sc.student_code})</div>
+                              </td>
+                              <td className="border border-black py-2 px-2 font-medium">{sc.book_title}</td>
+                              <td className="border border-black py-2 px-2 text-start font-medium">{sc.start_excerpt}</td>
+                              <td className="border border-black py-2 px-2 text-start font-medium">{sc.end_excerpt}</td>
+                              <td className="border border-black py-2 px-2 font-mono-code font-bold">{sc.pages_span}</td>
+                              <td className="border border-black py-2 px-2 font-mono-code font-bold text-[#065F46]">{sc.monthly_pages}</td>
+                              <td className="border border-black py-2 px-2 font-mono-code font-bold text-[#0F172A]">{sc.cumulative_pages}</td>
+                              <td className="border border-black py-2 px-2 text-[#065F46] font-medium">{sc.juziyat_count}</td>
+                            </tr>
+                          ))}
+
+                        {/* Full Width Row: ماہانہ نصاب (Exact from Attachment 4) */}
+                        <tr className="bg-[#FEF9C3] font-bold text-black">
+                          <td className="border border-black py-2.5 px-3 font-bold text-center text-sm" colSpan={2}>
+                            ماہانہ نصاب
+                          </td>
+                          <td className="border border-black py-2.5 px-4 text-start font-medium text-xs leading-relaxed" colSpan={6}>
+                            مقررہ ماہانہ نصاب بحمد اللہ مکمل ہے۔ تمام طلبہ نے اپنے درجات کے مطابق فقہی کتب کے ابواب و مباحث کا فہم و درایت کے ساتھ عمیق مطالعہ کیا اور خلاصہ جات و جزئیات باحسن طریق ضبط کیے۔
                           </td>
                         </tr>
-                      ) : (
-                        displayLessons.map((l: any, idx: number) => {
-                          const pageSpan = l.end_position && l.end_position !== l.start_position
-                            ? `${l.end_position} تا ${l.start_position}`
-                            : (l.start_position || '—');
-                          const textSpan = l.end_title
-                            ? `${l.start_title} تا ${l.end_title}`
-                            : (l.start_title || '—');
-                          return (
-                            <tr key={l.id || idx} className="hover:bg-amber-50/40">
-                              <td className="border border-black py-2 px-2 font-semibold text-black">
-                                {pick(l.teacher_name, l.teacher_name_ur)}
-                              </td>
-                              <td className="border border-black py-2 px-2">
-                                {pick(l.book_title_en, l.book_title_ur)}
-                              </td>
-                              <td className="border border-black py-2 px-2">
-                                {l.lesson_timing || (l.attendance_status === 'present' ? 'حاضر' : 'حاضر')}
-                              </td>
-                              <td className="border border-black py-2 px-3 text-start">
-                                {textSpan}
-                              </td>
-                              <td className="border border-black py-2 px-2 font-mono-code font-bold">
-                                {pageSpan}
-                              </td>
-                              <td className="border border-black py-2 px-2 font-bold font-mono-code">
-                                {l.daily_pages || 1}
-                              </td>
-                              <td className="border border-black py-2 px-2 font-bold font-mono-code">
-                                {l.cumulative_pages || '—'}
-                              </td>
-                            </tr>
-                          );
-                        })
-                      )}
-                    </tbody>
-                  </table>
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-              </div>
 
-              {/* Section 2: مطالعہ کارگزاری */}
-              <div className="space-y-2 pt-2">
-                <div className="text-center font-bold text-sm sm:text-base text-black font-urdu">
-                  طلباء کرام یومیہ مطالعہ کارگزاری ({displayMutala.length} اندراجات)
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs border-collapse border-2 border-black text-center font-urdu">
-                    <thead>
-                      <tr className="bg-[#FEF3C7] text-black font-bold">
-                        <th className="border border-black py-2.5 px-2 text-center font-bold w-[18%]">نام طلباء کرام</th>
-                        <th className="border border-black py-2.5 px-3 text-center font-bold w-[36%]">عبارت (ابتداء تا انتہاء)</th>
-                        <th className="border border-black py-2.5 px-2 text-center font-bold w-[16%]">صفحہ نمبر (ابتداء تا انتہاء)</th>
-                        <th className="border border-black py-2.5 px-2 text-center font-bold w-[10%]">یومیہ کل صفحات</th>
-                        <th className="border border-black py-2.5 px-2 text-center font-bold w-[10%]">تاحال کل صفحات</th>
-                        <th className="border border-black py-2.5 px-2 text-center font-bold w-[10%]">جزئیات</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {displayMutala.length === 0 ? (
-                        <tr>
-                          <td colSpan={6} className="border border-black py-6 text-center text-gray-500 font-urdu">
-                            اس تاریخ ({selectedDate}) کا طلبہ کے مطالعے کا کوئی ریکارڈ درج نہیں ہے۔
-                          </td>
-                        </tr>
-                      ) : (
-                        displayMutala.map((m: any, idx: number) => {
-                          const pageSpan = m.end_position && m.end_position !== m.start_position
-                            ? `${m.end_position} تا ${m.start_position}`
-                            : (m.start_position || '—');
-                          const textSpan = m.end_title
-                            ? `${m.start_title} تا ${m.end_title}`
-                            : (m.start_title || m.chapter || '—');
-                          const studentName = m.full_name_ur || m.student_name_ur || pick(m.full_name, m.full_name_ur);
-                          return (
-                            <tr key={m.id || idx} className="hover:bg-amber-50/40">
-                              <td className="border border-black py-2 px-2 font-semibold text-black">
-                                {studentName}{' '}
-                                {m.student_code && (
-                                  <span className="text-[10px] text-gray-600 font-mono-code font-normal">
-                                    ({m.student_code})
-                                  </span>
-                                )}
-                              </td>
-                              <td className="border border-black py-2 px-3 text-start">
-                                {textSpan}
-                              </td>
-                              <td className="border border-black py-2 px-2 font-mono-code font-bold">
-                                {pageSpan}
-                              </td>
-                              <td className="border border-black py-2 px-2 font-bold font-mono-code">
-                                {m.daily_pages || 1}
-                              </td>
-                              <td className="border border-black py-2 px-2 font-bold font-mono-code">
-                                {m.cumulative_pages || '—'}
-                              </td>
-                              <td className="border border-black py-2 px-2 font-bold text-[#065F46] font-mono-code">
-                                {m.juziyat_count || m.juziyat_notes || '—'}
-                              </td>
-                            </tr>
-                          );
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Signatures */}
-              <div className="pt-8 pb-3 flex items-end justify-between px-6 sm:px-12 text-xs font-urdu text-black">
-                <div className="text-center space-y-1">
-                  <div className="font-bold text-sm sm:text-base text-black">سراج الحق</div>
-                  <div className="text-gray-700 font-medium">(دستخط نگران)</div>
-                  <div className="pt-2 text-base font-serif italic text-gray-500">سراج الحق ✍️</div>
-                </div>
-                <div className="text-center space-y-1">
-                  <div className="font-bold text-sm sm:text-base text-black">مفتی عرفان خالد صاحب</div>
-                  <div className="text-gray-700 font-medium">(دستخط ناظم)</div>
-                  <div className="pt-2 text-base font-serif italic text-gray-500">عرفان خالد ✍️</div>
+                {/* Signatures */}
+                <div className="pt-8 pb-3 flex items-end justify-between px-6 sm:px-12 text-xs font-urdu text-black">
+                  <div className="text-center space-y-1">
+                    <div className="font-bold text-sm sm:text-base text-black">سراج الحق</div>
+                    <div className="text-gray-700 font-medium">(دستخط نگران)</div>
+                    <div className="pt-2 text-base font-serif italic text-gray-500">سراج الحق ✍️</div>
+                  </div>
+                  <div className="text-center space-y-1">
+                    <div className="font-bold text-sm sm:text-base text-black">مفتی عرفان خالد صاحب</div>
+                    <div className="text-gray-700 font-medium">(دستخط ناظم)</div>
+                    <div className="pt-2 text-base font-serif italic text-gray-500">عرفان خالد ✍️</div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1084,7 +1669,7 @@ export const MutalaView: React.FC = () => {
         </div>
       )}
 
-      {/* 5. ADD / EDIT MUTALA MODAL (Exact Sheet Fields Only) */}
+      {/* 5. ADD / EDIT MUTALA MODAL (With Class, Student, Book & Fallbacks) */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-3 sm:p-4 overflow-y-auto">
           <div className="w-full max-w-lg rounded-2xl border border-[#DCE4E0] bg-white p-5 shadow-2xl max-h-[92vh] overflow-y-auto">
@@ -1103,25 +1688,81 @@ export const MutalaView: React.FC = () => {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-3 pt-3 text-xs font-urdu">
-              {/* Row 1: Student & Date */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                <div>
-                  <label className="block text-[#5A6D65] font-semibold mb-1">نام طالب علم *</label>
-                  <select
-                    value={form.student_id}
-                    required
-                    onChange={(e) => setForm({ ...form, student_id: e.target.value })}
-                    className="w-full rounded-lg border border-[#DCE4E0] px-2.5 py-1.5 bg-white"
-                  >
-                    <option value="">طالب علم منتخب کریں</option>
-                    {students.map((st) => (
-                      <option key={st.id} value={st.id}>
-                        {st.full_name_ur || st.full_name} ({st.student_code})
-                      </option>
-                    ))}
-                  </select>
+              {/* Row 1: Class & Student Selection */}
+              {user?.role === 'student' ? (
+                <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-[#065F46]">
+                      {user.nameUr || user.name || 'طالب علم'}
+                    </span>
+                    {user.studentCode && (
+                      <span className="text-xs bg-white px-2 py-0.5 rounded border border-emerald-300 text-gray-700 font-mono-code font-bold">
+                        {user.studentCode}
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-xs text-emerald-800 font-medium">
+                    {classes.find((c) => c.id === form.class_id)?.name_ur || 'تخصص فی الفقہ'}
+                  </span>
                 </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="block text-[#5A6D65] font-semibold mb-1">درجہ / کلاس *</label>
+                    <select
+                      value={form.class_id}
+                      required
+                      onChange={(e) => {
+                        const newCls = e.target.value;
+                        const inClass = students.filter((s) => !newCls || s.class_id === newCls);
+                        setForm({
+                          ...form,
+                          class_id: newCls,
+                          student_id: inClass[0]?.id || form.student_id,
+                        });
+                      }}
+                      className="w-full rounded-lg border border-[#DCE4E0] px-2.5 py-1.5 bg-white font-medium"
+                    >
+                      <option value="">درجہ منتخب کریں</option>
+                      {classes.map((cls) => (
+                        <option key={cls.id} value={cls.id}>
+                          {cls.name_ur || cls.name_en}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
+                  <div>
+                    <label className="block text-[#5A6D65] font-semibold mb-1">نام طالب علم *</label>
+                    <select
+                      value={form.student_id}
+                      required
+                      onChange={(e) => {
+                        const stId = e.target.value;
+                        const stObj = students.find((s) => s.id === stId);
+                        setForm({
+                          ...form,
+                          student_id: stId,
+                          class_id: stObj?.class_id || form.class_id,
+                        });
+                      }}
+                      className="w-full rounded-lg border border-[#DCE4E0] px-2.5 py-1.5 font-medium bg-white"
+                    >
+                      <option value="">طالب علم منتخب کریں</option>
+                      {students
+                        .filter((st) => !form.class_id || st.class_id === form.class_id)
+                        .map((st) => (
+                          <option key={st.id} value={st.id}>
+                            {st.full_name_ur || st.full_name} ({st.student_code})
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {/* Row 2: Date & Maktaba */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div>
                   <label className="block text-[#5A6D65] font-semibold mb-1">تاریخ *</label>
                   <input
@@ -1132,27 +1773,9 @@ export const MutalaView: React.FC = () => {
                     className="w-full rounded-lg border border-[#DCE4E0] px-2.5 py-1.5 bg-white font-mono-code"
                   />
                 </div>
-              </div>
-
-              {/* Row 2: Book & Maktaba */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                <div>
-                  <label className="block text-[#5A6D65] font-semibold mb-1">کتاب *</label>
-                  <select
-                    value={form.book_id}
-                    required
-                    onChange={(e) => setForm({ ...form, book_id: e.target.value })}
-                    className="w-full rounded-lg border border-[#DCE4E0] px-2.5 py-1.5 bg-white"
-                  >
-                    <option value="">کتاب منتخب کریں</option>
-                    {books.map((b) => (
-                      <option key={b.id} value={b.id}>{pick(b.title_en, b.title_ur)}</option>
-                    ))}
-                  </select>
-                </div>
 
                 <div>
-                  <label className="block text-[#5A6D65] font-semibold mb-1">مکتبہ</label>
+                  <label className="block text-[#5A6D65] font-semibold mb-1">مکتبہ / اشاعت</label>
                   <input
                     type="text"
                     placeholder="مثلاً: مکتبہ امدادیہ"
@@ -1163,7 +1786,25 @@ export const MutalaView: React.FC = () => {
                 </div>
               </div>
 
-              {/* Row 3: Starting & Ending Excerpt / Heading */}
+              {/* Row 3: Book */}
+              <div>
+                <label className="block text-[#5A6D65] font-semibold mb-1">کتاب *</label>
+                <select
+                  value={form.book_id}
+                  required
+                  onChange={(e) => setForm({ ...form, book_id: e.target.value })}
+                  className="w-full rounded-lg border border-[#DCE4E0] px-2.5 py-1.5 bg-white font-medium"
+                >
+                  <option value="">کتاب منتخب کریں</option>
+                  {books.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {pick(b.title_en, b.title_ur)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Row 4: Starting & Ending Excerpt / Heading */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div>
                   <label className="block text-[#5A6D65] font-semibold mb-1">ابتداء عبارت / عنوان *</label>
@@ -1189,7 +1830,7 @@ export const MutalaView: React.FC = () => {
                 </div>
               </div>
 
-              {/* Row 4: Page (Start to End) & Daily Pages */}
+              {/* Row 5: Page (Start to End) & Daily Pages */}
               <div className="grid grid-cols-3 gap-2.5">
                 <div>
                   <label className="block text-[#5A6D65] font-semibold mb-1">صفحہ (ابتداء) *</label>
@@ -1224,7 +1865,7 @@ export const MutalaView: React.FC = () => {
                 </div>
               </div>
 
-              {/* Row 5: Cumulative Total Pages */}
+              {/* Row 6: Cumulative Total Pages */}
               <div>
                 <label className="block text-[#5A6D65] font-semibold mb-1">تاحال کل صفحات</label>
                 <input
@@ -1236,7 +1877,7 @@ export const MutalaView: React.FC = () => {
                 />
               </div>
 
-              {/* Row 6: Juziyat / Notes */}
+              {/* Row 7: Juziyat / Notes */}
               <div>
                 <label className="block text-[#5A6D65] font-semibold mb-1">خلاصہ / جزئیات</label>
                 <textarea

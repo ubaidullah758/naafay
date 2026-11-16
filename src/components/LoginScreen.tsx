@@ -1,32 +1,80 @@
-import React, { useState } from 'react';
-import { Shield, UserCheck, BookOpen, GraduationCap, Award, Globe, Lock } from 'lucide-react';
-import { useAuth, ROLE_PERSONAS, UserRole } from '../context/AuthContext';
+import React, { useState, useEffect } from 'react';
+import { Shield, BookOpen, GraduationCap, Globe, Lock, Phone, ArrowUpRight } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
+import { STATIC_TEACHERS } from '../lib/staticInitialData';
 
 interface LoginScreenProps {
   onOpenPublicPortal?: () => void;
   onAdminLoggedIn?: () => void;
+  onTeacherLoggedIn?: () => void;
+  onStudentLoggedIn?: () => void;
 }
 
-export const LoginScreen: React.FC<LoginScreenProps> = ({ onOpenPublicPortal, onAdminLoggedIn }) => {
-  const { signInAsRole, loginAdminWithCredentials } = useAuth();
+export const LoginScreen: React.FC<LoginScreenProps> = ({
+  onOpenPublicPortal,
+  onAdminLoggedIn,
+  onTeacherLoggedIn,
+  onStudentLoggedIn,
+}) => {
+  const { loginAdminWithCredentials, loginStudentWithCredentials, loginTeacherWithCredentials } = useAuth();
   const { lang, toggleLang, t } = useLanguage();
-  const [mode, setMode] = useState<'admin_login' | 'role_select'>('admin_login');
-  const [selectedRole, setSelectedRole] = useState<UserRole>('admin');
+
+  // Strictly 3 tabs: student_login, teacher_login, admin_login
+  const [mode, setMode] = useState<'student_login' | 'teacher_login' | 'admin_login'>('student_login');
+
+  // Student state (Mobile Number & PIN only — NO student names)
+  const [studentMobile, setStudentMobile] = useState('');
+  const [studentPin, setStudentPin] = useState('');
+
+  // Teacher state
+  const [teachers, setTeachers] = useState<any[]>(Array.isArray(STATIC_TEACHERS) ? STATIC_TEACHERS : []);
+  const [teacherCode, setTeacherCode] = useState('TCH-001');
+  const [teacherPin, setTeacherPin] = useState('123456');
+
+  // Admin state
   const [adminEmail, setAdminEmail] = useState('nazim@naafay.edu.pk');
-  const [adminCode, setAdminCode] = useState('');
+  const [adminCode, setAdminCode] = useState('naafay2026');
+
   const [loginError, setLoginError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const roles: Array<{ role: UserRole; label: string; icon: React.ReactNode }> = [
-    { role: 'admin', label: t('roleAdmin'), icon: <Shield className="h-4 w-4 shrink-0" /> },
-    { role: 'senior_mufti', label: t('roleSeniorMufti'), icon: <Award className="h-4 w-4 shrink-0" /> },
-    { role: 'mufti', label: t('roleTeacher'), icon: <BookOpen className="h-4 w-4 shrink-0" /> },
-    { role: 'office_staff', label: t('roleStaff'), icon: <UserCheck className="h-4 w-4 shrink-0" /> },
-    { role: 'student', label: t('roleStudent'), icon: <GraduationCap className="h-4 w-4 shrink-0" /> },
-  ];
+  useEffect(() => {
+    fetch('/api/teachers')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (Array.isArray(data) && data.length > 0) setTeachers(data);
+      })
+      .catch(() => {});
+  }, []);
 
-  const persona = ROLE_PERSONAS[selectedRole];
+  const handleStudentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginError(null);
+    setSubmitting(true);
+    try {
+      await loginStudentWithCredentials(studentMobile, studentPin || '123456');
+      onStudentLoggedIn?.();
+    } catch (err: any) {
+      setLoginError(err.message || (lang === 'ur' ? 'موبائل نمبر یا پن درست نہیں ہے' : 'Invalid mobile number or PIN'));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleTeacherSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginError(null);
+    setSubmitting(true);
+    try {
+      await loginTeacherWithCredentials(teacherCode, teacherPin || '123456');
+      onTeacherLoggedIn?.();
+    } catch (err: any) {
+      setLoginError(err.message || (lang === 'ur' ? 'استاذ لاگ ان ناکام رہا' : 'Teacher login failed'));
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const handleAdminSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,204 +84,267 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onOpenPublicPortal, on
       await loginAdminWithCredentials(adminEmail, adminCode || 'naafay2026');
       onAdminLoggedIn?.();
     } catch (err: any) {
-      setLoginError(err.message);
+      setLoginError(err.message || (lang === 'ur' ? 'ایڈمن لاگ ان ناکام رہا' : 'Admin login failed'));
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#F4F7FA] flex items-center justify-center p-3 sm:p-4 lg:p-8">
-      <div className="w-full max-w-5xl rounded-lg border border-[#D9E2EC] bg-white grid grid-cols-1 lg:grid-cols-2 items-stretch shadow-sm">
-        {/* Institutional Branding Panel (Logo Only, No Cover Photo) */}
-        <div className="relative bg-gradient-to-br from-[#0B2545] via-[#0F3A68] to-[#057A4B] p-5 sm:p-8 lg:p-10 flex flex-col justify-between text-white rounded-t-lg lg:rounded-t-none lg:rounded-s-lg min-h-0 lg:min-h-[540px]">
-          <div className="flex items-center gap-3 sm:gap-4">
-            <img
-              src="/assets/aistudio/naafay_logo_8857642c.jpg"
-              alt="Naafay Emblem"
-              referrerPolicy="no-referrer"
-              className="h-12 w-12 sm:h-16 sm:w-16 shrink-0 rounded-full border-2 border-white/40 bg-white object-contain p-0.5"
-            />
-            <div>
-              <h2 className="text-lg sm:text-xl font-bold text-white">{t('brandName')}</h2>
-              <p className="text-xs text-sky-100/95">{t('brandSub')}</p>
-            </div>
-          </div>
+    <div className="min-h-screen bg-[#F0F4F8] flex flex-col justify-center items-center p-4 sm:p-6 font-urdu">
+      <div className="w-full max-w-md">
 
-          <div className="space-y-3 sm:space-y-4 my-4 sm:my-6">
-            <div className="text-xs font-medium text-[#6EE7B7]">
-              {lang === 'ur' ? 'مربوط علمی، تعلیمی و افتاء سافٹ ویئر' : 'Unified Academic, Fatwa & Public Portal Platform'}
-            </div>
-            <p className="text-xs sm:text-sm text-sky-50/95 max-w-md">
-              {lang === 'ur'
-                ? 'نافع دارالافتاء و تخصص فی الفقہ کا مربوط تعلیمی، افتاء اور ایڈمن پورٹل: طلبہ، سہ وقتی حاضری، روزانہ مطالعہ، استفتاء، تحقیق، منظوری اور پبلک پورٹل کنٹرول۔'
-                : 'Integrated Academic, Dar-ul-Ifta & Master Admin platform for Takhassus fil Fiqh: full management across all three modules.'}
-            </p>
-          </div>
-
-          <div className="pt-3 sm:pt-4 border-t border-white/15 text-xs text-sky-100/80 flex items-center justify-between gap-2">
-            <span>{lang === 'ur' ? 'ناظم: مفتی وارث نصیب' : 'Nazim: Mufti Waris Naseeb'}</span>
-            <span className="font-mono-code">1447-1448 AH</span>
-          </div>
+        {/* Institution Branding Header */}
+        <div className="flex flex-col items-center text-center mb-6">
+          <img
+            src="/assets/aistudio/naafay_logo_8857642c.jpg"
+            alt="Naafay Emblem"
+            referrerPolicy="no-referrer"
+            className="h-16 w-16 sm:h-20 sm:w-20 rounded-full border-2 border-[#057A4B]/40 bg-white object-contain p-1 shadow-sm"
+          />
+          <h1 className="mt-3 text-lg sm:text-xl font-bold text-[#0B2545] tracking-wide">
+            {t('brandName')}
+          </h1>
+          <p className="mt-0.5 text-xs text-[#057A4B] font-semibold">
+            {t('brandSub')}
+          </p>
         </div>
 
-        {/* Login Tabs */}
-        <div className="p-4 sm:p-6 lg:p-10 flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between gap-2 pb-4 sm:pb-5 border-b border-[#E2E8F0] flex-wrap">
-              <span className="text-sm font-semibold text-[#0B2545]">{t('loginTitle')}</span>
-              <div className="flex items-center gap-2">
-                {onOpenPublicPortal && (
-                  <button
-                    type="button"
-                    onClick={onOpenPublicPortal}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-[#057A4B]/35 px-3 py-1.5 text-xs font-medium text-[#057A4B] hover:bg-[#057A4B]/5 transition-colors whitespace-nowrap shrink-0"
-                  >
-                    <span>{t('viewPublicPortal')}</span>
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={toggleLang}
-                  className="inline-flex items-center gap-1.5 rounded-md border border-[#D9E2EC] px-3 py-1.5 text-xs font-medium text-[#0F1F38] hover:bg-[#F4F7FA] transition-colors whitespace-nowrap shrink-0"
-                >
-                  <Globe className="h-3.5 w-3.5 text-[#057A4B]" />
-                  <span>{t('switchLang')}</span>
-                </button>
-              </div>
+        {/* Centered Login Card */}
+        <div className="bg-white rounded-2xl border border-[#D9E2EC] shadow-sm p-6 sm:p-8">
+
+          {/* 3 Clean Tabs */}
+          <div className="grid grid-cols-3 gap-1 p-1 bg-[#F1F5F9] rounded-lg border border-[#E2E8F0]">
+            <button
+              type="button"
+              onClick={() => {
+                setMode('student_login');
+                setLoginError(null);
+              }}
+              className={`flex items-center justify-center gap-1.5 rounded-md py-2 px-1 text-xs font-bold transition-all ${
+                mode === 'student_login'
+                  ? 'bg-white text-[#065F46] shadow-xs border border-emerald-300'
+                  : 'text-[#486581] hover:text-[#0B2545]'
+              }`}
+            >
+              <GraduationCap className="h-3.5 w-3.5 shrink-0" />
+              <span>{lang === 'ur' ? 'طالب علم' : 'Student'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setMode('teacher_login');
+                setLoginError(null);
+              }}
+              className={`flex items-center justify-center gap-1.5 rounded-md py-2 px-1 text-xs font-bold transition-all ${
+                mode === 'teacher_login'
+                  ? 'bg-white text-[#0B2545] shadow-xs border border-slate-300'
+                  : 'text-[#486581] hover:text-[#0B2545]'
+              }`}
+            >
+              <BookOpen className="h-3.5 w-3.5 shrink-0" />
+              <span>{lang === 'ur' ? 'استاذ / مفتی' : 'Teacher'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setMode('admin_login');
+                setLoginError(null);
+              }}
+              className={`flex items-center justify-center gap-1.5 rounded-md py-2 px-1 text-xs font-bold transition-all ${
+                mode === 'admin_login'
+                  ? 'bg-white text-[#0B2545] shadow-xs border border-slate-300'
+                  : 'text-[#486581] hover:text-[#0B2545]'
+              }`}
+            >
+              <Shield className="h-3.5 w-3.5 shrink-0" />
+              <span>{lang === 'ur' ? 'ایڈمن' : 'Admin'}</span>
+            </button>
+          </div>
+
+          {/* Error Message */}
+          {loginError && (
+            <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-2.5 text-center text-xs text-red-700 font-medium">
+              {loginError}
             </div>
+          )}
 
-            <div className="mt-5 flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setMode('admin_login')}
-                className={`rounded-md px-3.5 py-2 text-xs font-semibold transition-colors ${
-                  mode === 'admin_login'
-                    ? 'bg-[#0B2545] text-white'
-                    : 'border border-[#D9E2EC] bg-white text-[#243B53]'
-                }`}
-              >
-                {t('adminLoginTitle')}
-              </button>
-              <button
-                type="button"
-                onClick={() => setMode('role_select')}
-                className={`rounded-md px-3.5 py-2 text-xs font-semibold transition-colors ${
-                  mode === 'role_select'
-                    ? 'bg-[#0B2545] text-white'
-                    : 'border border-[#D9E2EC] bg-white text-[#243B53]'
-                }`}
-              >
-                {t('selectRole')}
-              </button>
-            </div>
-
-            {mode === 'admin_login' ? (
-              <form onSubmit={handleAdminSubmit} className="mt-6 space-y-4">
-                <div>
-                  <h1 className="text-lg font-bold text-[#0F1F38]">{t('adminLoginTitle')}</h1>
-                  <p className="mt-1 text-xs text-[#486581]">
-                    {lang === 'ur'
-                      ? 'ناظمِ دارالافتاء (مفتی وارث نصیب) کے لیے مرکزی ایڈمن پینل تک رسائی۔'
-                      : 'Sign in as Nazim Dar-ul-Ifta (Mufti Waris Naseeb) to access Admin Panel.'}
-                  </p>
-                </div>
-
-                {loginError && (
-                  <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-800">{loginError}</div>
-                )}
-
-                <div>
-                  <label className="block text-xs font-semibold text-[#0B2545] mb-1">
-                    {lang === 'ur' ? 'ایڈمن ای میل' : 'Admin Email'}
-                  </label>
+          {/* 1. STUDENT LOGIN FORM (MOBILE NUMBER ONLY — NO NAMES) */}
+          {mode === 'student_login' && (
+            <form onSubmit={handleStudentSubmit} className="mt-5 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-[#0B2545] mb-1.5">
+                  {lang === 'ur' ? 'موبائل نمبر' : 'Mobile Number'}
+                </label>
+                <div className="relative">
+                  <Phone className={`h-4 w-4 text-[#627D98] absolute top-1/2 -translate-y-1/2 ${lang === 'ur' ? 'right-3' : 'left-3'}`} />
                   <input
-                    type="email"
+                    type="tel"
                     dir="ltr"
                     required
-                    value={adminEmail}
-                    onChange={(e) => setAdminEmail(e.target.value)}
-                    className="w-full rounded-md border border-[#D9E2EC] bg-[#F4F7FA] px-3 py-2 text-xs font-mono-code focus:border-[#057A4B] focus:bg-white focus:outline-none"
+                    placeholder="03001234567"
+                    value={studentMobile}
+                    onChange={(e) => setStudentMobile(e.target.value)}
+                    className={`w-full rounded-lg border border-[#D9E2EC] bg-[#F8FAFC] py-2.5 text-xs font-mono-code focus:border-[#057A4B] focus:bg-white focus:outline-none transition-colors ${
+                      lang === 'ur' ? 'pr-9 pl-3' : 'pl-9 pr-3'
+                    }`}
                   />
                 </div>
+              </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-[#0B2545] mb-1">{t('adminAccessCode')}</label>
-                  <div className="relative">
-                    <Lock className={`h-4 w-4 text-[#627D98] absolute top-1/2 -translate-y-1/2 ${lang === 'ur' ? 'right-3' : 'left-3'}`} />
-                    <input
-                      type="password"
-                      dir="ltr"
-                      placeholder="naafay2026"
-                      value={adminCode}
-                      onChange={(e) => setAdminCode(e.target.value)}
-                      className={`w-full rounded-md border border-[#D9E2EC] bg-[#F4F7FA] py-2 text-xs font-mono-code focus:border-[#057A4B] focus:bg-white focus:outline-none ${
-                        lang === 'ur' ? 'pr-9 pl-3' : 'pl-9 pr-3'
-                      }`}
-                    />
-                  </div>
-                  <div className="mt-1 text-[11px] font-mono-code text-[#627D98]">
-                    {lang === 'ur' ? 'ڈیفالٹ کوڈ: naafay2026' : 'Default access code: naafay2026'}
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="w-full rounded-md bg-[#057A4B] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#04633D] transition-colors disabled:opacity-60"
-                >
-                  {submitting ? t('loading') : t('adminLoginBtn')}
-                </button>
-              </form>
-            ) : (
-              <div className="mt-6">
-                <h1 className="text-lg font-bold text-[#0F1F38]">{t('loginSubtitle')}</h1>
-                <p className="mt-1 text-sm text-[#486581]">{t('selectRole')}</p>
-
-                <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {roles.map((r) => {
-                    const active = selectedRole === r.role;
-                    return (
-                      <button
-                        key={r.role}
-                        type="button"
-                        onClick={() => setSelectedRole(r.role)}
-                        className={`flex items-center gap-2.5 rounded-md border px-3.5 py-2.5 text-start transition-colors ${
-                          active
-                            ? 'border-[#057A4B] bg-[#057A4B]/8 text-[#0B2545]'
-                            : 'border-[#D9E2EC] bg-white text-[#243B53] hover:bg-[#F4F7FA]'
-                        }`}
-                      >
-                        <span className={active ? 'text-[#057A4B]' : 'text-[#486581]'}>{r.icon}</span>
-                        <span className="text-xs font-semibold">{r.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <div className="mt-6 rounded-md border border-[#D9E2EC] bg-[#F4F7FA] p-4">
-                  <div className="text-xs text-[#486581]">{lang === 'ur' ? 'منتخب صارف' : 'Selected Account'}</div>
-                  <div className="mt-1 text-sm font-semibold text-[#0F1F38]">
-                    {lang === 'ur' ? persona.nameUr : persona.nameEn}
-                  </div>
-                  <div className="mt-0.5 text-xs font-mono-code text-[#486581]">{persona.email}</div>
-                </div>
-
-                <div className="mt-6">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      signInAsRole(selectedRole);
-                      if (selectedRole === 'admin') onAdminLoggedIn?.();
-                    }}
-                    className="w-full rounded-md bg-[#057A4B] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#04633D] transition-colors"
-                  >
-                    {t('enterPortal')}
-                  </button>
+              <div>
+                <label className="block text-xs font-semibold text-[#0B2545] mb-1.5">
+                  {lang === 'ur' ? 'خفیہ پن (PIN)' : 'PIN'}
+                </label>
+                <div className="relative">
+                  <Lock className={`h-4 w-4 text-[#627D98] absolute top-1/2 -translate-y-1/2 ${lang === 'ur' ? 'right-3' : 'left-3'}`} />
+                  <input
+                    type="password"
+                    dir="ltr"
+                    required
+                    placeholder="••••••"
+                    value={studentPin}
+                    onChange={(e) => setStudentPin(e.target.value)}
+                    className={`w-full rounded-lg border border-[#D9E2EC] bg-[#F8FAFC] py-2.5 text-xs font-mono-code focus:border-[#057A4B] focus:bg-white focus:outline-none transition-colors ${
+                      lang === 'ur' ? 'pr-9 pl-3' : 'pl-9 pr-3'
+                    }`}
+                  />
                 </div>
               </div>
-            )}
+
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full rounded-lg bg-[#057A4B] px-4 py-2.5 text-xs sm:text-sm font-bold text-white hover:bg-[#04633D] transition-colors shadow-sm disabled:opacity-60 flex items-center justify-center gap-2 mt-2"
+              >
+                <GraduationCap className="h-4 w-4" />
+                <span>{submitting ? t('loading') : (lang === 'ur' ? 'داخل ہوں' : 'Sign In')}</span>
+              </button>
+            </form>
+          )}
+
+          {/* 2. TEACHER LOGIN FORM */}
+          {mode === 'teacher_login' && (
+            <form onSubmit={handleTeacherSubmit} className="mt-5 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-[#0B2545] mb-1.5">
+                  {lang === 'ur' ? 'استاذ / مفتی' : 'Teacher / Mufti'}
+                </label>
+                <select
+                  value={teacherCode}
+                  onChange={(e) => setTeacherCode(e.target.value)}
+                  className="w-full rounded-lg border border-[#D9E2EC] bg-[#F8FAFC] px-3 py-2.5 text-xs font-medium text-[#0F1F38] focus:border-[#057A4B] focus:bg-white focus:outline-none transition-colors"
+                >
+                  {teachers.map((tch) => (
+                    <option key={tch.id || tch.teacher_code} value={tch.teacher_code || tch.id}>
+                      {tch.full_name_ur || tch.full_name} ({tch.teacher_code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[#0B2545] mb-1.5">
+                  {lang === 'ur' ? 'خفیہ پن (PIN)' : 'PIN'}
+                </label>
+                <div className="relative">
+                  <Lock className={`h-4 w-4 text-[#627D98] absolute top-1/2 -translate-y-1/2 ${lang === 'ur' ? 'right-3' : 'left-3'}`} />
+                  <input
+                    type="password"
+                    dir="ltr"
+                    required
+                    value={teacherPin}
+                    onChange={(e) => setTeacherPin(e.target.value)}
+                    className={`w-full rounded-lg border border-[#D9E2EC] bg-[#F8FAFC] py-2.5 text-xs font-mono-code focus:border-[#057A4B] focus:bg-white focus:outline-none transition-colors ${
+                      lang === 'ur' ? 'pr-9 pl-3' : 'pl-9 pr-3'
+                    }`}
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full rounded-lg bg-[#0B2545] px-4 py-2.5 text-xs sm:text-sm font-bold text-white hover:bg-[#071D36] transition-colors shadow-sm disabled:opacity-60 flex items-center justify-center gap-2 mt-2"
+              >
+                <BookOpen className="h-4 w-4" />
+                <span>{submitting ? t('loading') : (lang === 'ur' ? 'داخل ہوں' : 'Sign In')}</span>
+              </button>
+            </form>
+          )}
+
+          {/* 3. ADMIN LOGIN FORM */}
+          {mode === 'admin_login' && (
+            <form onSubmit={handleAdminSubmit} className="mt-5 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-[#0B2545] mb-1.5">
+                  {lang === 'ur' ? 'ایڈمن ای میل' : 'Admin Email'}
+                </label>
+                <input
+                  type="email"
+                  dir="ltr"
+                  required
+                  value={adminEmail}
+                  onChange={(e) => setAdminEmail(e.target.value)}
+                  className="w-full rounded-lg border border-[#D9E2EC] bg-[#F8FAFC] px-3 py-2.5 text-xs font-mono-code focus:border-[#057A4B] focus:bg-white focus:outline-none transition-colors"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[#0B2545] mb-1.5">
+                  {lang === 'ur' ? 'پاس ورڈ' : 'Password'}
+                </label>
+                <div className="relative">
+                  <Lock className={`h-4 w-4 text-[#627D98] absolute top-1/2 -translate-y-1/2 ${lang === 'ur' ? 'right-3' : 'left-3'}`} />
+                  <input
+                    type="password"
+                    dir="ltr"
+                    required
+                    value={adminCode}
+                    onChange={(e) => setAdminCode(e.target.value)}
+                    className={`w-full rounded-lg border border-[#D9E2EC] bg-[#F8FAFC] py-2.5 text-xs font-mono-code focus:border-[#057A4B] focus:bg-white focus:outline-none transition-colors ${
+                      lang === 'ur' ? 'pr-9 pl-3' : 'pl-9 pr-3'
+                    }`}
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full rounded-lg bg-[#0B2545] px-4 py-2.5 text-xs sm:text-sm font-bold text-white hover:bg-[#071D36] transition-colors shadow-sm disabled:opacity-60 flex items-center justify-center gap-2 mt-2"
+              >
+                <Shield className="h-4 w-4" />
+                <span>{submitting ? t('loading') : (lang === 'ur' ? 'داخل ہوں' : 'Sign In')}</span>
+              </button>
+            </form>
+          )}
+
+          {/* Clean Card Footer */}
+          <div className="mt-6 pt-4 border-t border-[#E2E8F0] flex items-center justify-between text-xs text-[#5A6D65]">
+            {onOpenPublicPortal ? (
+              <button
+                type="button"
+                onClick={onOpenPublicPortal}
+                className="inline-flex items-center gap-1 text-[#057A4B] hover:underline font-semibold"
+              >
+                <span>{t('viewPublicPortal')}</span>
+                <ArrowUpRight className="h-3.5 w-3.5" />
+              </button>
+            ) : <span />}
+
+            <button
+              type="button"
+              onClick={toggleLang}
+              className="inline-flex items-center gap-1.5 text-[#486581] hover:text-[#0B2545]"
+            >
+              <Globe className="h-3.5 w-3.5 text-[#057A4B]" />
+              <span>{t('switchLang')}</span>
+            </button>
           </div>
+
         </div>
       </div>
     </div>

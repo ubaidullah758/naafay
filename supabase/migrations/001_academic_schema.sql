@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
 
 CREATE TABLE IF NOT EXISTS public.roles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL UNIQUE CHECK (name IN ('admin', 'office_staff', 'teacher', 'student', 'mufti')),
+  name TEXT NOT NULL UNIQUE CHECK (name IN ('admin', 'office_staff', 'teacher', 'student', 'mufti', 'senior_mufti')),
   title_en TEXT NOT NULL,
   title_ur TEXT NOT NULL,
   description TEXT,

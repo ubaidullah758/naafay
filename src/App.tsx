@@ -92,11 +92,19 @@ function StaffPortal() {
       <LoginScreen
         onOpenPublicPortal={() => navigate('/')}
         onAdminLoggedIn={() => navigate(`/staff/${SECTION_PATHS.admin_panel}`, { replace: true })}
+        onTeacherLoggedIn={() => navigate(`/staff/${SECTION_PATHS.attendance}`, { replace: true })}
+        onStudentLoggedIn={() => navigate(`/staff/${SECTION_PATHS.attendance}`, { replace: true })}
       />
     );
   }
 
-  const defaultPath = `/staff/${user.role === 'admin' ? SECTION_PATHS.admin_panel : SECTION_PATHS.fatwa_dashboard}`;
+  const defaultPath = `/staff/${
+    user.role === 'admin'
+      ? SECTION_PATHS.admin_panel
+      : user.role === 'student'
+      ? SECTION_PATHS.attendance
+      : SECTION_PATHS.fatwa_dashboard
+  }`;
 
   // `/staff` or `/staff/` with no section: send the user to their landing page.
   if (!section) {
@@ -109,6 +117,11 @@ function StaffPortal() {
   // Only admins may open the admin panel; everyone else goes to the fatwa board.
   if (section === 'admin_panel' && user.role !== 'admin') {
     return <Navigate to={`/staff/${SECTION_PATHS.fatwa_dashboard}`} replace />;
+  }
+
+  // Students are strictly scoped: only attendance, mutala, lessons, and teachers allowed
+  if (user.role === 'student' && !['attendance', 'mutala', 'lessons', 'teachers'].includes(section)) {
+    return <Navigate to={`/staff/${SECTION_PATHS.attendance}`} replace />;
   }
 
   const handleNavigate = (next: NavSection, nextPayload?: NavigatePayload) => {

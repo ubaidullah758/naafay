@@ -94,6 +94,14 @@ export const Layout: React.FC<LayoutProps> = ({ activeSection, onNavigate, onOpe
     { id: 'reports', label: t('navReports'), icon: <FileSpreadsheet className="h-4 w-4 shrink-0" /> },
   ];
 
+  // Strictly Scoped Navigation for Students: Only Attendance, Mutala, Lessons, Teachers
+  const studentNav: Array<{ id: NavSection; label: string; icon: React.ReactNode }> = [
+    { id: 'attendance', label: t('navAttendance'), icon: <CalendarCheck className="h-4 w-4 shrink-0" /> },
+    { id: 'mutala', label: t('navMutala'), icon: <BookOpenCheck className="h-4 w-4 shrink-0" /> },
+    { id: 'lessons', label: t('navLessons'), icon: <BookMarked className="h-4 w-4 shrink-0" /> },
+    { id: 'teachers', label: t('navTeachers'), icon: <GraduationCap className="h-4 w-4 shrink-0" /> },
+  ];
+
   const adminNav: Array<{ id: NavSection; label: string; icon: React.ReactNode }> =
     user?.role === 'admin'
       ? [{ id: 'admin_panel', label: t('navAdminPanel'), icon: <ShieldCheck className="h-4 w-4 shrink-0" /> }]
@@ -335,77 +343,14 @@ export const Layout: React.FC<LayoutProps> = ({ activeSection, onNavigate, onOpe
         </div>
 
         <nav className="flex-1 overflow-y-auto px-3 lg:px-3 py-4 space-y-5">
-          {/* Part 1: Academic (نظام تعلیمات) */}
-          <div>
-            <div className={`px-3 pb-1.5 text-[11px] text-sky-300 font-medium ${sidebarCollapsed ? 'lg:hidden' : 'block'}`}>
-              {t('moduleAcademic')}
-            </div>
-            <div className="space-y-1">
-              {academicNav.map((item) => {
-                const isActive = activeSection === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    title={item.label}
-                    onClick={() => {
-                      onNavigate(item.id);
-                      setSidebarOpen(false);
-                    }}
-                    className={`w-full flex items-center ${
-                      sidebarCollapsed ? 'gap-3 px-3.5 lg:justify-center lg:px-2' : 'gap-3 px-3.5'
-                    } rounded-md py-2.5 text-xs transition-colors whitespace-nowrap ${
-                      isActive
-                        ? 'bg-[#057A4B] text-white shadow-sm'
-                        : 'text-sky-50/90 hover:bg-white/10 hover:text-white'
-                    }`}
-                  >
-                    {item.icon}
-                    <span className={`truncate ${sidebarCollapsed ? 'lg:hidden' : 'inline'}`}>{item.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Part 2: Dar-ul-Ifta (نظام دارالافتاء) */}
-          <div>
-            <div className={`px-3 pb-1.5 text-[11px] text-[#34D399] font-medium ${sidebarCollapsed ? 'lg:hidden' : 'block'}`}>
-              {t('moduleDarulIfta')}
-            </div>
-            <div className="space-y-1">
-              {fatwaNav.map((item) => {
-                const isActive = activeSection === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    title={item.label}
-                    onClick={() => {
-                      onNavigate(item.id);
-                      setSidebarOpen(false);
-                    }}
-                    className={`w-full flex items-center ${
-                      sidebarCollapsed ? 'gap-3 px-3.5 lg:justify-center lg:px-2' : 'gap-3 px-3.5'
-                    } rounded-md py-2.5 text-xs transition-colors whitespace-nowrap ${
-                      isActive
-                        ? 'bg-[#057A4B] text-white shadow-sm'
-                        : 'text-sky-50/90 hover:bg-white/10 hover:text-white'
-                    }`}
-                  >
-                    {item.icon}
-                    <span className={`truncate ${sidebarCollapsed ? 'lg:hidden' : 'inline'}`}>{item.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Admin Panel */}
-          {user?.role === 'admin' && (
-            <div className="pt-2 border-t border-white/10">
-              <div className="space-y-1">
-                {adminNav.map((item) => {
+          {user?.role === 'student' ? (
+            /* Student Only Navigation: strictly Attendance, Mutala, Lessons, Teachers */
+            <div>
+              <div className={`px-3 pb-2 text-[11px] text-[#6EE7B7] font-semibold tracking-wide ${sidebarCollapsed ? 'lg:hidden' : 'block'}`}>
+                {lang === 'ur' ? 'طالب علم ڈیش بورڈ' : 'Student Dashboard'}
+              </div>
+              <div className="space-y-1.5">
+                {studentNav.map((item) => {
                   const isActive = activeSection === item.id;
                   return (
                     <button
@@ -420,8 +365,8 @@ export const Layout: React.FC<LayoutProps> = ({ activeSection, onNavigate, onOpe
                         sidebarCollapsed ? 'gap-3 px-3.5 lg:justify-center lg:px-2' : 'gap-3 px-3.5'
                       } rounded-md py-2.5 text-xs transition-colors whitespace-nowrap ${
                         isActive
-                          ? 'bg-[#057A4B] text-white shadow-sm ring-1 ring-amber-300/40'
-                          : 'text-amber-200/90 hover:bg-white/10 hover:text-amber-100'
+                          ? 'bg-[#057A4B] text-white shadow-sm font-semibold'
+                          : 'text-sky-50/90 hover:bg-white/10 hover:text-white'
                       }`}
                     >
                       {item.icon}
@@ -431,6 +376,106 @@ export const Layout: React.FC<LayoutProps> = ({ activeSection, onNavigate, onOpe
                 })}
               </div>
             </div>
+          ) : (
+            <>
+              {/* Part 1: Academic (نظام تعلیمات) */}
+              <div>
+                <div className={`px-3 pb-1.5 text-[11px] text-sky-300 font-medium ${sidebarCollapsed ? 'lg:hidden' : 'block'}`}>
+                  {t('moduleAcademic')}
+                </div>
+                <div className="space-y-1">
+                  {academicNav.map((item) => {
+                    const isActive = activeSection === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        title={item.label}
+                        onClick={() => {
+                          onNavigate(item.id);
+                          setSidebarOpen(false);
+                        }}
+                        className={`w-full flex items-center ${
+                          sidebarCollapsed ? 'gap-3 px-3.5 lg:justify-center lg:px-2' : 'gap-3 px-3.5'
+                        } rounded-md py-2.5 text-xs transition-colors whitespace-nowrap ${
+                          isActive
+                            ? 'bg-[#057A4B] text-white shadow-sm'
+                            : 'text-sky-50/90 hover:bg-white/10 hover:text-white'
+                        }`}
+                      >
+                        {item.icon}
+                        <span className={`truncate ${sidebarCollapsed ? 'lg:hidden' : 'inline'}`}>{item.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Part 2: Dar-ul-Ifta (نظام دارالافتاء) */}
+              <div>
+                <div className={`px-3 pb-1.5 text-[11px] text-[#34D399] font-medium ${sidebarCollapsed ? 'lg:hidden' : 'block'}`}>
+                  {t('moduleDarulIfta')}
+                </div>
+                <div className="space-y-1">
+                  {fatwaNav.map((item) => {
+                    const isActive = activeSection === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        title={item.label}
+                        onClick={() => {
+                          onNavigate(item.id);
+                          setSidebarOpen(false);
+                        }}
+                        className={`w-full flex items-center ${
+                          sidebarCollapsed ? 'gap-3 px-3.5 lg:justify-center lg:px-2' : 'gap-3 px-3.5'
+                        } rounded-md py-2.5 text-xs transition-colors whitespace-nowrap ${
+                          isActive
+                            ? 'bg-[#057A4B] text-white shadow-sm'
+                            : 'text-sky-50/90 hover:bg-white/10 hover:text-white'
+                        }`}
+                      >
+                        {item.icon}
+                        <span className={`truncate ${sidebarCollapsed ? 'lg:hidden' : 'inline'}`}>{item.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Admin Panel */}
+              {user?.role === 'admin' && (
+                <div className="pt-2 border-t border-white/10">
+                  <div className="space-y-1">
+                    {adminNav.map((item) => {
+                      const isActive = activeSection === item.id;
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          title={item.label}
+                          onClick={() => {
+                            onNavigate(item.id);
+                            setSidebarOpen(false);
+                          }}
+                          className={`w-full flex items-center ${
+                            sidebarCollapsed ? 'gap-3 px-3.5 lg:justify-center lg:px-2' : 'gap-3 px-3.5'
+                          } rounded-md py-2.5 text-xs transition-colors whitespace-nowrap ${
+                            isActive
+                              ? 'bg-[#057A4B] text-white shadow-sm ring-1 ring-amber-300/40'
+                              : 'text-amber-200/90 hover:bg-white/10 hover:text-amber-100'
+                          }`}
+                        >
+                          {item.icon}
+                          <span className={`truncate ${sidebarCollapsed ? 'lg:hidden' : 'inline'}`}>{item.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </nav>
 
@@ -519,70 +564,83 @@ export const Layout: React.FC<LayoutProps> = ({ activeSection, onNavigate, onOpe
             </div>
           </div>
 
-          {/* Global Search across Fatwas, Students, Teachers, Books (Desktop) */}
-          <div ref={searchRef} className="relative flex-1 max-w-md hidden md:block">
-            <div className="relative">
-              <Search className={`h-4 w-4 text-[#486581] absolute top-1/2 -translate-y-1/2 ${lang === 'ur' ? 'right-3' : 'left-3'}`} />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={t('searchPlaceholder')}
-                className={`w-full rounded-md border border-[#D9E2EC] bg-[#F4F7FA] py-1.5 text-xs text-[#0F1F38] placeholder-[#627D98] focus:border-[#057A4B] focus:bg-white focus:outline-none ${
-                  lang === 'ur' ? 'pr-9 pl-3' : 'pl-9 pr-3'
-                }`}
-              />
-            </div>
-
-            {searchQuery.trim() && searchResults && (
-              <div className="absolute left-0 right-0 mt-1.5">
-                {renderSearchResults()}
+          {/* Global Search across Fatwas, Students, Teachers, Books (Desktop) - Hidden for Students */}
+          {user?.role !== 'student' && (
+            <div ref={searchRef} className="relative flex-1 max-w-md hidden md:block">
+              <div className="relative">
+                <Search className={`h-4 w-4 text-[#486581] absolute top-1/2 -translate-y-1/2 ${lang === 'ur' ? 'right-3' : 'left-3'}`} />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder={t('searchPlaceholder')}
+                  className={`w-full rounded-md border border-[#D9E2EC] bg-[#F4F7FA] py-1.5 text-xs text-[#0F1F38] placeholder-[#627D98] focus:border-[#057A4B] focus:bg-white focus:outline-none ${
+                    lang === 'ur' ? 'pr-9 pl-3' : 'pl-9 pr-3'
+                  }`}
+                />
               </div>
-            )}
-          </div>
+
+              {searchQuery.trim() && searchResults && (
+                <div className="absolute left-0 right-0 mt-1.5">
+                  {renderSearchResults()}
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             {/* Mobile Search Toggle Button */}
-            <button
-              type="button"
-              onClick={() => setMobileSearchOpen((o) => !o)}
-              className="md:hidden p-1.5 rounded-md border border-[#D9E2EC] text-[#0B2545] hover:bg-[#F4F7FA] transition-colors shrink-0"
-              aria-label="Toggle search"
-            >
-              {mobileSearchOpen ? <X className="h-4 w-4" /> : <Search className="h-4 w-4 text-[#057A4B]" />}
-            </button>
+            {user?.role !== 'student' && (
+              <button
+                type="button"
+                onClick={() => setMobileSearchOpen((o) => !o)}
+                className="md:hidden p-1.5 rounded-md border border-[#D9E2EC] text-[#0B2545] hover:bg-[#F4F7FA] transition-colors shrink-0"
+                aria-label="Toggle search"
+              >
+                {mobileSearchOpen ? <X className="h-4 w-4" /> : <Search className="h-4 w-4 text-[#057A4B]" />}
+              </button>
+            )}
 
             {user && (
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setRoleMenuOpen((o) => !o)}
-                  className="inline-flex items-center gap-1 sm:gap-1.5 rounded-md bg-[#0B2545] px-2 sm:px-3 py-1.5 text-[11px] sm:text-xs font-medium text-white hover:bg-[#103563] transition-colors whitespace-nowrap shrink-0 max-w-[140px] sm:max-w-none"
-                >
-                  <span className="truncate">{roleLabels[user.role]}</span>
-                  <ChevronDown className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0" />
-                </button>
-                {roleMenuOpen && (
-                  <div className={`absolute mt-1.5 w-60 rounded-md border border-[#D9E2EC] bg-white shadow-lg z-50 py-1 ${lang === 'ur' ? 'left-0' : 'right-0'}`}>
-                    {(['admin', 'senior_mufti', 'mufti', 'office_staff', 'student'] as UserRole[]).map((r) => (
-                      <button
-                        key={r}
-                        type="button"
-                        onClick={() => {
-                          signInAsRole(r);
-                          setRoleMenuOpen(false);
-                        }}
-                        className={`w-full px-3.5 py-2 text-start text-xs hover:bg-[#F4F7FA] flex items-center justify-between ${
-                          user.role === r ? 'font-semibold text-[#057A4B] bg-[#057A4B]/5' : 'text-[#243B53]'
-                        }`}
-                      >
-                        <span>{roleLabels[r]}</span>
-                        {user.role === r && <span>✓</span>}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+              user.role === 'student' ? (
+                <div className="inline-flex items-center gap-1.5 rounded-md bg-[#057A4B]/10 border border-[#057A4B]/30 px-2.5 py-1.5 text-xs font-semibold text-[#065F46] whitespace-nowrap">
+                  <GraduationCap className="h-4 w-4 text-[#057A4B] shrink-0" />
+                  <span className="truncate max-w-[180px] sm:max-w-[260px]">
+                    {user.nameUr || user.name || user.nameEn || 'طالب علم'} ({user.studentCode || 'طالب علم'})
+                  </span>
+                </div>
+              ) : (
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setRoleMenuOpen((o) => !o)}
+                    className="inline-flex items-center gap-1 sm:gap-1.5 rounded-md bg-[#0B2545] px-2 sm:px-3 py-1.5 text-[11px] sm:text-xs font-medium text-white hover:bg-[#103563] transition-colors whitespace-nowrap shrink-0 max-w-[140px] sm:max-w-none"
+                  >
+                    <span className="truncate">{roleLabels[user.role]}</span>
+                    <ChevronDown className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0" />
+                  </button>
+                  {roleMenuOpen && (
+                    <div className={`absolute mt-1.5 w-60 rounded-md border border-[#D9E2EC] bg-white shadow-lg z-50 py-1 ${lang === 'ur' ? 'left-0' : 'right-0'}`}>
+                      {(['admin', 'senior_mufti', 'mufti', 'office_staff', 'student'] as UserRole[]).map((r) => (
+                        <button
+                          key={r}
+                          type="button"
+                          onClick={() => {
+                            signInAsRole(r);
+                            setRoleMenuOpen(false);
+                          }}
+                          className={`w-full px-3.5 py-2 text-start text-xs hover:bg-[#F4F7FA] flex items-center justify-between ${
+                            user.role === r ? 'font-semibold text-[#057A4B] bg-[#057A4B]/5' : 'text-[#243B53]'
+                          }`}
+                        >
+                          <span>{roleLabels[r]}</span>
+                          {user.role === r && <span>✓</span>}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
             )}
           </div>
         </header>
