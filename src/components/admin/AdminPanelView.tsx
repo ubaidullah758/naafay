@@ -15,6 +15,8 @@ import {
   Megaphone,
   Save,
   BookOpen,
+  KeyRound,
+  Lock,
 } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
@@ -30,7 +32,7 @@ interface AdminPanelViewProps {
   onNavigate: (section: NavSection, payload?: { studentId?: string; teacherId?: string; fatwaId?: string }) => void;
 }
 
-type AdminMainTab = 'overview' | 'part1' | 'part2' | 'part3' | 'users' | 'audit';
+type AdminMainTab = 'overview' | 'part1' | 'part2' | 'part3' | 'security' | 'users' | 'audit';
 type Part1SubTab = 'students' | 'teachers' | 'classes' | 'subjects' | 'records';
 
 export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onNavigate }) => {
@@ -74,6 +76,82 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onNavigate }) =>
 
   // Users Modal
   const [profileModal, setProfileModal] = useState<any | null>(null);
+
+  // Security & Passwords State
+  const [adminPassForm, setAdminPassForm] = useState({ next: '', confirm: '' });
+  const [adminPassLoading, setAdminPassLoading] = useState(false);
+  const [pinModal, setPinModal] = useState<{
+    type: 'student' | 'teacher';
+    id: string;
+    name: string;
+    code: string;
+    pin: string;
+  } | null>(null);
+
+  const updateStudentStatus = async (id: string, status: string) => {
+    try {
+      await apiFetch(`/api/students/${id}`, { method: 'PUT', body: JSON.stringify({ status }) }, user);
+      notify(lang === 'ur' ? 'طالب علم کی حالت تبدیل کر دی گئی' : 'Student status updated');
+      await load();
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
+  const updateTeacherStatus = async (id: string, status: string) => {
+    try {
+      await apiFetch(`/api/teachers/${id}`, { method: 'PUT', body: JSON.stringify({ status }) }, user);
+      notify(lang === 'ur' ? 'استاذ کی حالت تبدیل کر دی گئی' : 'Teacher status updated');
+      await load();
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
+  const savePin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pinModal) return;
+    if (pinModal.pin.length < 4) {
+      setError(lang === 'ur' ? 'خفیہ پن کم از کم 4 ہندسوں پر مشتمل ہونا چاہیے' : 'PIN must be at least 4 digits');
+      return;
+    }
+    try {
+      await apiFetch(`/api/${pinModal.type}s/${pinModal.id}/pin`, {
+        method: 'POST',
+        body: JSON.stringify({ newPin: pinModal.pin }),
+      }, user);
+      notify(lang === 'ur' ? `${pinModal.name} کا نیا پن محفوظ ہو گیا!` : 'PIN updated successfully');
+      setPinModal(null);
+      await load();
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
+  const saveAdminPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (adminPassForm.next.length < 4) {
+      setError(lang === 'ur' ? 'نیا پاس ورڈ کم از کم 4 حروف پر مشتمل ہونا چاہیے' : 'Password must be at least 4 characters');
+      return;
+    }
+    if (adminPassForm.next !== adminPassForm.confirm) {
+      setError(lang === 'ur' ? 'پاس ورڈ اور تصدیق مماثل نہیں ہیں' : 'Passwords do not match');
+      return;
+    }
+    setAdminPassLoading(true);
+    try {
+      await apiFetch('/api/admin/change-password', {
+        method: 'POST',
+        body: JSON.stringify({ newCode: adminPassForm.next }),
+      }, user);
+      notify(lang === 'ur' ? 'ایڈمن پاس ورڈ / خفیہ کوڈ کامیابی سے تبدیل ہو گیا!' : 'Admin password updated');
+      setAdminPassForm({ next: '', confirm: '' });
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setAdminPassLoading(false);
+    }
+  };
 
   const notify = (msg: string) => {
     setToast(msg);
@@ -428,6 +506,7 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onNavigate }) =>
     { id: 'part1', label: lang === 'ur' ? 'حصہ اول: تعلیمی انتظام' : 'Part 1: Academic', icon: <GraduationCap className="h-4 w-4 shrink-0" /> },
     { id: 'part2', label: lang === 'ur' ? 'حصہ دوم: دارالافتاء' : 'Part 2: Dar-ul-Ifta', icon: <Scale className="h-4 w-4 shrink-0" /> },
     { id: 'part3', label: lang === 'ur' ? 'حصہ سوم: پبلک پورٹل' : 'Part 3: Public Portal', icon: <Globe className="h-4 w-4 shrink-0" /> },
+    { id: 'security', label: lang === 'ur' ? 'پاس ورڈ و سیکیورٹی' : 'Security & Passwords', icon: <KeyRound className="h-4 w-4 shrink-0" /> },
     { id: 'users', label: lang === 'ur' ? 'صارفین و عہدے' : 'Users & Roles', icon: <Users className="h-4 w-4 shrink-0" /> },
     { id: 'audit', label: lang === 'ur' ? 'آڈٹ لاگ' : 'Audit Logs', icon: <History className="h-4 w-4 shrink-0" /> },
   ];
@@ -1634,6 +1713,248 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onNavigate }) =>
         </div>
       )}
 
+      {/* TAB: SECURITY & PASSWORDS */}
+      {tab === 'security' && (
+        <div className="space-y-6">
+          {/* Card 1: Admin Password Change */}
+          <div className="rounded-lg border border-[#D9E2EC] bg-white p-5 shadow-sm space-y-4">
+            <div className="border-b border-[#EDF2F7] pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h3 className="text-sm font-bold text-[#0B2545] flex items-center gap-2">
+                  <KeyRound className="h-4 w-4 text-[#057A4B]" />
+                  <span>{lang === 'ur' ? 'ایڈمن پاس ورڈ / خفیہ کوڈ کی تبدیلی' : 'Change Master Admin Password'}</span>
+                </h3>
+                <p className="text-xs text-[#627D98] mt-0.5">
+                  {lang === 'ur'
+                    ? 'ایڈمن لاگ ان ہونے کا خفیہ رسائی کوڈ (Access Code) یہاں سے تبدیل کریں۔'
+                    : 'Change the master admin access code for system login.'}
+                </p>
+              </div>
+              <span className="text-[11px] font-mono-code px-2.5 py-1 rounded bg-[#0B2545]/10 text-[#0B2545] font-semibold self-start sm:self-auto">
+                nazim@naafay.edu.pk
+              </span>
+            </div>
+
+            <form onSubmit={saveAdminPassword} className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs items-end">
+              <div>
+                <label className="block font-semibold text-[#0B2545] mb-1">
+                  {lang === 'ur' ? 'نیا پاس ورڈ / کوڈ' : 'New Admin Password'}
+                </label>
+                <div className="relative">
+                  <Lock className={`h-3.5 w-3.5 text-[#627D98] absolute top-1/2 -translate-y-1/2 ${lang === 'ur' ? 'right-2.5' : 'left-2.5'}`} />
+                  <input
+                    type="password"
+                    dir="ltr"
+                    required
+                    placeholder="کم از کم 4 حروف یا ہندسے"
+                    value={adminPassForm.next}
+                    onChange={(e) => setAdminPassForm({ ...adminPassForm, next: e.target.value })}
+                    className={`w-full rounded border border-[#D9E2EC] bg-[#F8FAFC] py-2 text-xs font-mono-code text-[#0F1F38] focus:border-[#057A4B] focus:bg-white focus:outline-none ${
+                      lang === 'ur' ? 'pr-8 pl-2.5' : 'pl-8 pr-2.5'
+                    }`}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-[#0B2545] mb-1">
+                  {lang === 'ur' ? 'نئے پاس ورڈ کی تصدیق' : 'Confirm New Password'}
+                </label>
+                <div className="relative">
+                  <Lock className={`h-3.5 w-3.5 text-[#627D98] absolute top-1/2 -translate-y-1/2 ${lang === 'ur' ? 'right-2.5' : 'left-2.5'}`} />
+                  <input
+                    type="password"
+                    dir="ltr"
+                    required
+                    placeholder="دوبارہ درج کریں"
+                    value={adminPassForm.confirm}
+                    onChange={(e) => setAdminPassForm({ ...adminPassForm, confirm: e.target.value })}
+                    className={`w-full rounded border border-[#D9E2EC] bg-[#F8FAFC] py-2 text-xs font-mono-code text-[#0F1F38] focus:border-[#057A4B] focus:bg-white focus:outline-none ${
+                      lang === 'ur' ? 'pr-8 pl-2.5' : 'pl-8 pr-2.5'
+                    }`}
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={adminPassLoading}
+                className="rounded-lg bg-[#057A4B] px-4 py-2 text-xs font-bold text-white hover:bg-[#04633D] transition-colors shadow-sm disabled:opacity-60 flex items-center justify-center gap-1.5 h-[34px]"
+              >
+                <Save className="h-3.5 w-3.5" />
+                <span>{adminPassLoading ? (lang === 'ur' ? 'محفوظ ہو رہا ہے...' : 'Saving...') : (lang === 'ur' ? 'پاس ورڈ تبدیل کریں' : 'Update Password')}</span>
+              </button>
+            </form>
+          </div>
+
+          {/* Card 2: Student Credentials & Status Manager */}
+          <div className="rounded-lg border border-[#D9E2EC] bg-white shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-[#EDF2F7]">
+              <h3 className="text-sm font-bold text-[#0B2545] flex items-center gap-2">
+                <GraduationCap className="h-4 w-4 text-[#057A4B]" />
+                <span>{lang === 'ur' ? `طلبہ کے پاس ورڈز و حالت کا انتظام (${data.students.length})` : `Students Security & Status (${data.students.length})`}</span>
+              </h3>
+              <p className="text-xs text-[#627D98] mt-0.5">
+                {lang === 'ur'
+                  ? 'طلبہ کا لاگ ان خفیہ پن ری سیٹ کریں، یا اکاؤنٹ کو فعال، معطل، یا خارج کریں۔'
+                  : 'Reset student login PINs and manage account status in real-time.'}
+              </p>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead className="bg-[#F4F7FA] text-[#486581]">
+                  <tr>
+                    <th className="px-4 py-2.5 text-start">{lang === 'ur' ? 'کوڈ' : 'Code'}</th>
+                    <th className="px-4 py-2.5 text-start">{lang === 'ur' ? 'طالب علم کا نام' : 'Name'}</th>
+                    <th className="px-4 py-2.5 text-start">{lang === 'ur' ? 'موبائل نمبر' : 'Phone'}</th>
+                    <th className="px-4 py-2.5 text-start">{lang === 'ur' ? 'اکاؤنٹ حالت' : 'Account Status'}</th>
+                    <th className="px-4 py-2.5 text-end">{lang === 'ur' ? 'پاس ورڈ و سیکیورٹی ایکشن' : 'Actions'}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#EDF2F7]">
+                  {data.students.map((s: any) => (
+                    <tr key={s.id} className="hover:bg-[#F8FAFC]">
+                      <td className="px-4 py-3 font-mono-code font-bold text-[#0284C7]">{s.student_code}</td>
+                      <td className="px-4 py-3 font-semibold text-[#0B2545]">{pick(s.full_name, s.full_name_ur)}</td>
+                      <td className="px-4 py-3 font-mono-code text-[#486581]" dir="ltr">{formatPakistaniMobile(s.phone)}</td>
+                      <td className="px-4 py-3">
+                        <select
+                          value={s.status || 'active'}
+                          onChange={(e) => updateStudentStatus(s.id, e.target.value)}
+                          className={`rounded border text-xs px-2 py-1 font-semibold ${
+                            s.status === 'active'
+                              ? 'border-emerald-300 bg-emerald-50 text-emerald-800'
+                              : s.status === 'suspended'
+                              ? 'border-red-300 bg-red-50 text-red-800'
+                              : s.status === 'on_leave'
+                              ? 'border-amber-300 bg-amber-50 text-amber-800'
+                              : 'border-slate-300 bg-slate-50 text-slate-700'
+                          }`}
+                        >
+                          <option value="active">{lang === 'ur' ? 'فعال (Active)' : 'Active'}</option>
+                          <option value="on_leave">{lang === 'ur' ? 'رخصت (On Leave)' : 'On Leave'}</option>
+                          <option value="suspended">{lang === 'ur' ? 'معطل (Suspended)' : 'Suspended'}</option>
+                          <option value="graduated">{lang === 'ur' ? 'فارغ التحصیل (Graduated)' : 'Graduated'}</option>
+                          <option value="inactive">{lang === 'ur' ? 'غیر فعال (Inactive)' : 'Inactive'}</option>
+                        </select>
+                      </td>
+                      <td className="px-4 py-3 text-end">
+                        <div className="inline-flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setPinModal({ type: 'student', id: s.id, name: s.full_name_ur || s.full_name, code: s.student_code, pin: '123456' })}
+                            className="inline-flex items-center gap-1 rounded border border-[#057A4B]/40 bg-[#057A4B]/5 hover:bg-[#057A4B]/15 px-2.5 py-1 text-xs font-semibold text-[#065F46] transition-colors"
+                          >
+                            <KeyRound className="h-3.5 w-3.5" />
+                            <span>{lang === 'ur' ? 'پن تبدیل کریں' : 'Reset PIN'}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              requestDelete(
+                                lang === 'ur' ? 'طالب علم خارج / حذف کریں' : 'Delete Student',
+                                lang === 'ur' ? `کیا آپ واقعی "${s.full_name_ur || s.full_name}" کا ریکارڈ حذف کرنا چاہتے ہیں؟` : `Delete student ${s.full_name}?`,
+                                () => apiFetch(`/api/students/${s.id}`, { method: 'DELETE' }, user)
+                              )
+                            }
+                            className="p-1.5 rounded hover:bg-red-50 text-red-700 transition-colors"
+                            title={lang === 'ur' ? 'حذف کریں' : 'Delete'}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Card 3: Teacher Credentials & Status Manager */}
+          <div className="rounded-lg border border-[#D9E2EC] bg-white shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-[#EDF2F7]">
+              <h3 className="text-sm font-bold text-[#0B2545] flex items-center gap-2">
+                <Users className="h-4 w-4 text-[#0B2545]" />
+                <span>{lang === 'ur' ? `اساتذہ و مفتیان کے پاس ورڈز و حالت (${data.teachers.length})` : `Teachers Security & Status (${data.teachers.length})`}</span>
+              </h3>
+              <p className="text-xs text-[#627D98] mt-0.5">
+                {lang === 'ur'
+                  ? 'اساتذہ کا لاگ ان خفیہ پن تبدیل کریں یا ان کی حالت فعال / غیر فعال کریں۔'
+                  : 'Reset teacher login PINs and manage account status in real-time.'}
+              </p>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead className="bg-[#F4F7FA] text-[#486581]">
+                  <tr>
+                    <th className="px-4 py-2.5 text-start">{lang === 'ur' ? 'کوڈ' : 'Code'}</th>
+                    <th className="px-4 py-2.5 text-start">{lang === 'ur' ? 'استاذ کا نام' : 'Name'}</th>
+                    <th className="px-4 py-2.5 text-start">{lang === 'ur' ? 'تخصص / ذمہ داری' : 'Specialization'}</th>
+                    <th className="px-4 py-2.5 text-start">{lang === 'ur' ? 'موبائل نمبر' : 'Phone'}</th>
+                    <th className="px-4 py-2.5 text-start">{lang === 'ur' ? 'اکاؤنٹ حالت' : 'Account Status'}</th>
+                    <th className="px-4 py-2.5 text-end">{lang === 'ur' ? 'پاس ورڈ و سیکیورٹی ایکشن' : 'Actions'}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#EDF2F7]">
+                  {data.teachers.map((t: any) => (
+                    <tr key={t.id} className="hover:bg-[#F8FAFC]">
+                      <td className="px-4 py-3 font-mono-code font-bold text-[#057A4B]">{t.teacher_code}</td>
+                      <td className="px-4 py-3 font-semibold text-[#0B2545]">{pick(t.full_name, t.full_name_ur)}</td>
+                      <td className="px-4 py-3 text-[#486581]">{t.specialization || 'تدریس و افتاء'}</td>
+                      <td className="px-4 py-3 font-mono-code text-[#486581]" dir="ltr">{formatPakistaniMobile(t.phone)}</td>
+                      <td className="px-4 py-3">
+                        <select
+                          value={t.status || 'active'}
+                          onChange={(e) => updateTeacherStatus(t.id, e.target.value)}
+                          className={`rounded border text-xs px-2 py-1 font-semibold ${
+                            t.status === 'active'
+                              ? 'border-emerald-300 bg-emerald-50 text-emerald-800'
+                              : 'border-red-300 bg-red-50 text-red-800'
+                          }`}
+                        >
+                          <option value="active">{lang === 'ur' ? 'فعال (Active)' : 'Active'}</option>
+                          <option value="inactive">{lang === 'ur' ? 'غیر فعال (Inactive)' : 'Inactive'}</option>
+                          <option value="on_leave">{lang === 'ur' ? 'رخصت (On Leave)' : 'On Leave'}</option>
+                        </select>
+                      </td>
+                      <td className="px-4 py-3 text-end">
+                        <div className="inline-flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setPinModal({ type: 'teacher', id: t.id, name: t.full_name_ur || t.full_name, code: t.teacher_code, pin: '123456' })}
+                            className="inline-flex items-center gap-1 rounded border border-[#0B2545]/40 bg-[#0B2545]/5 hover:bg-[#0B2545]/15 px-2.5 py-1 text-xs font-semibold text-[#0B2545] transition-colors"
+                          >
+                            <KeyRound className="h-3.5 w-3.5" />
+                            <span>{lang === 'ur' ? 'پن تبدیل کریں' : 'Reset PIN'}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              requestDelete(
+                                lang === 'ur' ? 'استاذ حذف کریں' : 'Delete Teacher',
+                                lang === 'ur' ? `کیا آپ واقعی "${t.full_name_ur || t.full_name}" کا ریکارڈ حذف کرنا چاہتے ہیں؟` : `Delete teacher ${t.full_name}?`,
+                                () => apiFetch(`/api/teachers/${t.id}`, { method: 'DELETE' }, user)
+                              )
+                            }
+                            className="p-1.5 rounded hover:bg-red-50 text-red-700 transition-colors"
+                            title={lang === 'ur' ? 'حذف کریں' : 'Delete'}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* TAB: USERS & ROLES */}
       {tab === 'users' && (
         <div className="rounded-lg border border-[#D9E2EC] bg-white">
@@ -1944,6 +2265,64 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onNavigate }) =>
             <div className="flex justify-end gap-2 pt-2">
               <button type="button" onClick={() => setProfileModal(null)} className="rounded border border-[#D9E2EC] px-4 py-2">{lang === 'ur' ? 'منسوخ' : 'Cancel'}</button>
               <button type="submit" className="rounded bg-[#057A4B] px-4 py-2 font-semibold text-white">{lang === 'ur' ? 'محفوظ کریں' : 'Save'}</button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {pinModal && (
+        <Modal
+          title={lang === 'ur' ? `${pinModal.name} کا لاگ ان پن تبدیل کریں` : `Reset PIN for ${pinModal.name}`}
+          onClose={() => setPinModal(null)}
+        >
+          <form onSubmit={savePin} className="space-y-4 text-xs font-urdu">
+            <div className="rounded-lg bg-[#F8FAFC] border border-[#E2E8F0] p-3 text-xs flex justify-between items-center">
+              <div>
+                <span className="text-[#627D98]">{lang === 'ur' ? 'نام:' : 'Name:'} </span>
+                <span className="font-bold text-[#0B2545]">{pinModal.name}</span>
+              </div>
+              <span className="font-mono-code font-bold px-2 py-0.5 rounded bg-[#057A4B]/10 text-[#057A4B]">
+                {pinModal.code}
+              </span>
+            </div>
+
+            <div>
+              <label className="block font-semibold text-[#0B2545] mb-1">
+                {lang === 'ur' ? 'نیا خفیہ پن (PIN)' : 'New PIN'}
+              </label>
+              <div className="relative">
+                <Lock className={`h-4 w-4 text-[#627D98] absolute top-1/2 -translate-y-1/2 ${lang === 'ur' ? 'right-3' : 'left-3'}`} />
+                <input
+                  type="text"
+                  dir="ltr"
+                  required
+                  placeholder="کم از کم 4 ہندسے"
+                  value={pinModal.pin}
+                  onChange={(e) => setPinModal({ ...pinModal, pin: e.target.value })}
+                  className={`w-full rounded-lg border border-[#D9E2EC] bg-[#F8FAFC] py-2 font-mono-code text-xs text-[#0F1F38] focus:border-[#057A4B] focus:bg-white focus:outline-none ${
+                    lang === 'ur' ? 'pr-9 pl-3' : 'pl-9 pr-3'
+                  }`}
+                />
+              </div>
+              <p className="text-[11px] text-[#627D98] mt-1">
+                {lang === 'ur' ? 'طالب علم یا استاذ اس پن کے ذریعے اپنے ڈیش بورڈ میں لاگ ان ہو سکیں گے۔' : 'User will use this PIN to log in.'}
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setPinModal(null)}
+                className="rounded border border-[#D9E2EC] px-4 py-2 hover:bg-[#F4F7FA] font-medium"
+              >
+                {lang === 'ur' ? 'منسوخ' : 'Cancel'}
+              </button>
+              <button
+                type="submit"
+                className="rounded bg-[#057A4B] px-4 py-2 font-semibold text-white hover:bg-[#04633D]"
+              >
+                {lang === 'ur' ? 'پن محفوظ کریں' : 'Save PIN'}
+              </button>
             </div>
           </form>
         </Modal>

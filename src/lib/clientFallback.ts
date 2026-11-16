@@ -24,6 +24,12 @@ const STORAGE_KEYS = {
   portalData: 'naafay_local_portal_data',
   schedule: 'naafay_local_schedule',
   students: 'naafay_local_students',
+  teachers: 'naafay_local_teachers',
+  lessons: 'naafay_local_lessons',
+  mutala: 'naafay_local_mutala',
+  studentPins: 'naafay_student_pins',
+  teacherPins: 'naafay_teacher_pins',
+  adminCode: 'naafay_admin_code',
 };
 
 function getStoredJson<T>(key: string, defaultValue: T): T {
@@ -85,8 +91,45 @@ export async function handleClientFallback(url: string, options: RequestInit = {
 
   // 1. Admin Overview (/api/admin/overview)
   if (pathname === '/api/admin/overview') {
-    const stored = getStoredJson(STORAGE_KEYS.adminOverview, STATIC_ADMIN_OVERVIEW);
-    return jsonResponse(stored || STATIC_ADMIN_OVERVIEW);
+    const customClasses = getStoredJson<any[]>('naafay_custom_classes', []);
+    const customYears = getStoredJson<any[]>('naafay_custom_years', []);
+    const customBatches = getStoredJson<any[]>('naafay_custom_batches', []);
+    const currentStudents = getStoredJson<any[]>(
+      STORAGE_KEYS.students,
+      Array.isArray(STATIC_STUDENTS) ? STATIC_STUDENTS : STATIC_STUDENTS?.students || []
+    );
+    const currentTeachers = getStoredJson<any[]>(
+      STORAGE_KEYS.teachers,
+      Array.isArray(STATIC_TEACHERS) ? STATIC_TEACHERS : STATIC_TEACHERS?.teachers || []
+    );
+    const currentLessons = getStoredJson<any[]>(
+      STORAGE_KEYS.lessons,
+      Array.isArray(STATIC_LESSONS?.lessons) ? STATIC_LESSONS.lessons : []
+    );
+    const currentMutala = getStoredJson<any[]>(
+      STORAGE_KEYS.mutala,
+      Array.isArray(STATIC_MUTALA) ? STATIC_MUTALA : []
+    );
+
+    const base = getStoredJson(STORAGE_KEYS.adminOverview, STATIC_ADMIN_OVERVIEW) || STATIC_ADMIN_OVERVIEW;
+    const combined = {
+      ...base,
+      students: currentStudents,
+      teachers: currentTeachers,
+      lessons: currentLessons,
+      mutalaLogs: currentMutala,
+      classes: [...(STATIC_LOOKUPS.classes || []), ...customClasses],
+      academicYears: [...(STATIC_LOOKUPS.academicYears || []), ...customYears],
+      batches: [...(STATIC_LOOKUPS.batches || []), ...customBatches],
+      counts: {
+        ...(base.counts || {}),
+        students: currentStudents.length,
+        teachers: currentTeachers.length,
+        lessons: currentLessons.length,
+        mutalaLogs: currentMutala.length,
+      },
+    };
+    return jsonResponse(combined);
   }
 
   // 2. Public Portal Data (/api/public/portal-data)
@@ -251,6 +294,26 @@ export async function handleClientFallback(url: string, options: RequestInit = {
   if (pathname.startsWith('/api/students/')) {
     const stuId = decodeURIComponent(pathname.replace('/api/students/', '').split('/')[0]);
     const studentsList: any[] = getStoredJson<any[]>(STORAGE_KEYS.students, Array.isArray(STATIC_STUDENTS) ? STATIC_STUDENTS : STATIC_STUDENTS?.students || []);
+
+    // PIN change endpoint: /api/students/:id/pin
+    if (pathname.includes('/pin') && method === 'POST') {
+      const b = typeof options.body === 'string' ? JSON.parse(options.body) : {};
+      const newPin = String(b.newPin || b.pin || '').trim();
+      const pins = getStoredJson<Record<string, string>>(STORAGE_KEYS.studentPins, {});
+      pins[stuId] = newPin;
+      const target = studentsList.find((s) => s.id === stuId || s.student_code === stuId);
+      if (target?.student_code) pins[target.student_code] = newPin;
+      if (target?.phone) pins[target.phone.replace(/[^0-9]/g, '')] = newPin;
+      setStoredJson(STORAGE_KEYS.studentPins, pins);
+      return jsonResponse({ success: true, message: 'Student PIN updated successfully' });
+    }
+
+    if (method === 'DELETE') {
+      const updated = studentsList.filter((s) => s.id !== stuId && s.student_code !== stuId);
+      setStoredJson(STORAGE_KEYS.students, updated);
+      return jsonResponse({ success: true, message: 'Student deleted successfully' });
+    }
+
     if (method === 'PUT') {
       const b = typeof options.body === 'string' ? JSON.parse(options.body) : {};
       const idx = studentsList.findIndex((s) => s.id === stuId || s.student_code === stuId);
@@ -375,7 +438,34 @@ export async function handleClientFallback(url: string, options: RequestInit = {
 
   // 10. Teachers List (/api/teachers) -> Returns Array directly!
   if (pathname === '/api/teachers') {
-    const teachersArr = Array.isArray(STATIC_TEACHERS) ? STATIC_TEACHERS : STATIC_TEACHERS?.teachers || [];
+    const teachersArr = getStoredJson<any[]>(
+      STORAGE_KEYS.teachers,
+      Array.isArray(STATIC_TEACHERS) ? STATIC_TEACHERS : STATIC_TEACHERS?.teachers || []
+    );
+
+    if (method === 'POST') {
+      const b = typeof options.body === 'string' ? JSON.parse(options.body) : {};
+      const newId = 'tch-' + Date.now();
+      const nextNum = teachersArr.length + 1;
+      const teacherCode = b.teacher_code || `TCH-${String(nextNum).padStart(3, '0')}`;
+      const newTeacher = {
+        id: newId,
+        teacher_code: teacherCode,
+        full_name: b.full_name || b.full_name_ur || 'نیا استاذ',
+        full_name_ur: b.full_name_ur || b.full_name || 'نیا استاذ',
+        qualification: b.qualification || 'شہادۃ العالمیہ فی العلوم الاسلامیہ',
+        qualification_ur: b.qualification_ur || 'شہادۃ العالمیہ فی العلوم الاسلامیہ',
+        specialization: b.specialization || 'تدریس و افتاء',
+        phone: b.phone || '03001234561',
+        email: b.email || `teacher.${teacherCode.toLowerCase()}@naafay.edu.pk`,
+        status: b.status || 'active',
+        assignments: [],
+      };
+      const updated = [newTeacher, ...teachersArr];
+      setStoredJson(STORAGE_KEYS.teachers, updated);
+      return jsonResponse(newTeacher, 201);
+    }
+
     const qSearch = (parsed.searchParams.get('search') || '').toLowerCase().trim();
 
     let filtered = teachersArr;
@@ -402,7 +492,40 @@ export async function handleClientFallback(url: string, options: RequestInit = {
   // 10b. Single Teacher Detail (/api/teachers/:id)
   if (pathname.startsWith('/api/teachers/')) {
     const tchId = decodeURIComponent(pathname.replace('/api/teachers/', '').split('/')[0]);
-    const teachersList: any[] = Array.isArray(STATIC_TEACHERS) ? STATIC_TEACHERS : STATIC_TEACHERS?.teachers || [];
+    const teachersList: any[] = getStoredJson<any[]>(
+      STORAGE_KEYS.teachers,
+      Array.isArray(STATIC_TEACHERS) ? STATIC_TEACHERS : STATIC_TEACHERS?.teachers || []
+    );
+
+    // PIN change endpoint: /api/teachers/:id/pin
+    if (pathname.includes('/pin') && method === 'POST') {
+      const b = typeof options.body === 'string' ? JSON.parse(options.body) : {};
+      const newPin = String(b.newPin || b.pin || '').trim();
+      const pins = getStoredJson<Record<string, string>>(STORAGE_KEYS.teacherPins, {});
+      pins[tchId] = newPin;
+      const target = teachersList.find((t) => t.id === tchId || t.teacher_code === tchId);
+      if (target?.teacher_code) pins[target.teacher_code] = newPin;
+      if (target?.phone) pins[target.phone.replace(/[^0-9]/g, '')] = newPin;
+      setStoredJson(STORAGE_KEYS.teacherPins, pins);
+      return jsonResponse({ success: true, message: 'Teacher PIN updated successfully' });
+    }
+
+    if (method === 'DELETE') {
+      const updated = teachersList.filter((t) => t.id !== tchId && t.teacher_code !== tchId);
+      setStoredJson(STORAGE_KEYS.teachers, updated);
+      return jsonResponse({ success: true, message: 'Teacher deleted successfully' });
+    }
+
+    if (method === 'PUT') {
+      const b = typeof options.body === 'string' ? JSON.parse(options.body) : {};
+      const idx = teachersList.findIndex((t) => t.id === tchId || t.teacher_code === tchId);
+      if (idx !== -1) {
+        teachersList[idx] = { ...teachersList[idx], ...b };
+        setStoredJson(STORAGE_KEYS.teachers, teachersList);
+        return jsonResponse(teachersList[idx]);
+      }
+    }
+
     const rawFound = teachersList.find((t) => t.id === tchId || t.teacher_code === tchId) || teachersList[0] || {};
     const found = {
       ...rawFound,
@@ -717,11 +840,20 @@ export async function handleClientFallback(url: string, options: RequestInit = {
         return jsonResponse({ error: 'Student not found', error_ur: 'اس موبائل نمبر کا کوئی طالب علم موجود نہیں ہے' }, 404);
       }
 
-      const validPins = ['123456', 'naafay2026', (found?.student_code || '').toLowerCase(), (found?.student_code || '').toUpperCase()];
+      const pins = getStoredJson<Record<string, string>>(STORAGE_KEYS.studentPins, {});
+      const customPin = pins[found?.id] || pins[found?.student_code] || (digits ? pins[digits] : null);
+      const validPins = [
+        customPin,
+        '123456',
+        'naafay2026',
+        (found?.student_code || '').toLowerCase(),
+        (found?.student_code || '').toUpperCase(),
+      ].filter(Boolean);
+
       if (pin && !validPins.includes(pin)) {
         return jsonResponse({
           error: 'Invalid student PIN',
-          error_ur: 'طالب علم کا خفیہ پن درست نہیں ہے (ڈیفالٹ: 123456)',
+          error_ur: 'طالب علم کا خفیہ پن درست نہیں ہے',
         }, 401);
       }
 
@@ -754,21 +886,34 @@ export async function handleClientFallback(url: string, options: RequestInit = {
       const codeOrIdentifier = String(body.teacherCode || body.email || body.phone || '').trim();
       const pin = String(body.pin || body.password || '').trim();
 
-      const teachersList: any[] = Array.isArray(STATIC_TEACHERS) ? STATIC_TEACHERS : STATIC_TEACHERS?.teachers || [];
+      const teachersList: any[] = getStoredJson<any[]>(
+        STORAGE_KEYS.teachers,
+        Array.isArray(STATIC_TEACHERS) ? STATIC_TEACHERS : STATIC_TEACHERS?.teachers || []
+      );
       const cleanTarget = codeOrIdentifier.toLowerCase().replace(/[-\s]/g, '');
 
       const found = teachersList.find((t: any) => {
         const tc = (t.teacher_code || '').toLowerCase().replace(/[-\s]/g, '');
         const id = (t.id || '').toLowerCase();
         const em = (t.email || '').toLowerCase();
-        return tc === cleanTarget || id === codeOrIdentifier.toLowerCase() || em === codeOrIdentifier.toLowerCase();
+        const ph = (t.phone || '').replace(/[^0-9]/g, '');
+        return tc === cleanTarget || id === codeOrIdentifier.toLowerCase() || em === codeOrIdentifier.toLowerCase() || (cleanTarget && ph.includes(cleanTarget));
       }) || teachersList[0];
 
-      const validPins = ['123456', 'naafay2026', (found?.teacher_code || '').toLowerCase(), (found?.teacher_code || '').toUpperCase()];
+      const tchPins = getStoredJson<Record<string, string>>(STORAGE_KEYS.teacherPins, {});
+      const customTchPin = tchPins[found?.id] || tchPins[found?.teacher_code] || tchPins[found?.phone?.replace(/[^0-9]/g, '')];
+      const validPins = [
+        customTchPin,
+        '123456',
+        'naafay2026',
+        (found?.teacher_code || '').toLowerCase(),
+        (found?.teacher_code || '').toUpperCase(),
+      ].filter(Boolean);
+
       if (pin && !validPins.includes(pin)) {
         return jsonResponse({
           error: 'Invalid teacher PIN',
-          error_ur: 'استاذ کا خفیہ پن درست نہیں ہے (ڈیفالٹ: 123456)',
+          error_ur: 'استاذ کا خفیہ پن درست نہیں ہے',
         }, 401);
       }
 
@@ -791,17 +936,32 @@ export async function handleClientFallback(url: string, options: RequestInit = {
     }
   }
 
+  // 15d. Change Admin Password (/api/admin/change-password)
+  if (pathname === '/api/admin/change-password' && method === 'POST') {
+    const b = body || {};
+    const newCode = String(b.newCode || b.newPassword || '').trim();
+    if (!newCode || newCode.length < 4) {
+      return jsonResponse({
+        error: 'Code must be at least 4 characters',
+        error_ur: 'خفیہ کوڈ کم از کم 4 حروف پر مشتمل ہونا چاہیے',
+      }, 400);
+    }
+    localStorage.setItem(STORAGE_KEYS.adminCode, newCode);
+    return jsonResponse({ success: true, message: 'Admin access code updated successfully' });
+  }
+
   // 16. Admin Login (/api/admin/login)
   if (pathname === '/api/admin/login' && method === 'POST') {
     const b = body || {};
     const email = String(b.email || '').trim().toLowerCase();
     const accessCode = String(b.accessCode || b.password || '').trim();
+    const currentAdminCode = localStorage.getItem(STORAGE_KEYS.adminCode) || 'naafay2026';
 
-    const allowedCodes = ['naafay2026', 'naafay123', 'naafay123456', 'admin123', '123456', 'admin'];
+    const allowedCodes = [currentAdminCode, 'naafay2026', 'naafay123', 'naafay123456', 'admin123', '123456', 'admin'];
     if (accessCode && !allowedCodes.includes(accessCode) && accessCode.length < 4) {
       return jsonResponse({
         error: 'Invalid admin access code',
-        error_ur: 'ایڈمن کا خفیہ کوڈ درست نہیں ہے (ڈیفالٹ: naafay2026)',
+        error_ur: 'ایڈمن کا خفیہ کوڈ درست نہیں ہے',
       }, 401);
     }
 
@@ -1237,14 +1397,59 @@ export async function handleClientFallback(url: string, options: RequestInit = {
 
   // 24. Lessons (/api/lessons) -> Returns { lessons: [], bookProgress: [] }
   if (pathname === '/api/lessons') {
+    const rawLessons = Array.isArray(STATIC_LESSONS?.lessons) ? STATIC_LESSONS.lessons : [];
+    const storedLessons = getStoredJson<any[]>(STORAGE_KEYS.lessons, rawLessons);
+
     if (method === 'POST') {
-      const body = typeof options.body === 'string' ? JSON.parse(options.body) : {};
-      return jsonResponse({ id: 'les-' + Date.now(), ...body });
+      const b = typeof options.body === 'string' ? JSON.parse(options.body) : {};
+      const newLesson = {
+        id: 'les-' + Date.now(),
+        lesson_date: b.lesson_date || new Date().toISOString().slice(0, 10),
+        book_title_en: b.book_title_en || 'Radd al-Muhtar',
+        book_title_ur: b.book_title_ur || 'رد المحتار (فتاویٰ شامی)',
+        teacher_name: b.teacher_name || 'Mufti Salman',
+        teacher_name_ur: b.teacher_name_ur || 'مفتی سلمان',
+        start_position: b.start_position || 'ص ۱',
+        end_position: b.end_position || 'ص ۱۰',
+        total_pages: Number(b.total_pages || 10),
+        status: 'completed',
+        ...b,
+      };
+      const updated = [newLesson, ...storedLessons];
+      setStoredJson(STORAGE_KEYS.lessons, updated);
+      return jsonResponse(newLesson, 201);
     }
-    return jsonResponse(STATIC_LESSONS || { lessons: [], bookProgress: [] });
+
+    const qDate = parsed.searchParams.get('date');
+    let filtered = storedLessons;
+    if (qDate) {
+      filtered = storedLessons.filter((l) => l.lesson_date === qDate);
+    }
+    return jsonResponse({
+      lessons: filtered,
+      bookProgress: STATIC_LESSONS?.bookProgress || [],
+    });
   }
-  if (pathname.startsWith('/api/lessons/') && (method === 'PUT' || method === 'DELETE')) {
-    return jsonResponse({ success: true });
+
+  if (pathname.startsWith('/api/lessons/')) {
+    const lesId = pathname.replace('/api/lessons/', '').split('/')[0];
+    const rawLessons = Array.isArray(STATIC_LESSONS?.lessons) ? STATIC_LESSONS.lessons : [];
+    const storedLessons = getStoredJson<any[]>(STORAGE_KEYS.lessons, rawLessons);
+
+    if (method === 'PUT') {
+      const b = typeof options.body === 'string' ? JSON.parse(options.body) : {};
+      const idx = storedLessons.findIndex((l) => l.id === lesId);
+      if (idx !== -1) {
+        storedLessons[idx] = { ...storedLessons[idx], ...b };
+        setStoredJson(STORAGE_KEYS.lessons, storedLessons);
+        return jsonResponse(storedLessons[idx]);
+      }
+    }
+    if (method === 'DELETE') {
+      const updated = storedLessons.filter((l) => l.id !== lesId);
+      setStoredJson(STORAGE_KEYS.lessons, updated);
+      return jsonResponse({ success: true, message: 'Lesson deleted successfully' });
+    }
   }
 
   // 25. Exams (/api/exams) -> Returns Array directly!

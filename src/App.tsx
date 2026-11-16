@@ -33,6 +33,9 @@ const FatwaArchiveView = lazy(() =>
 const AdminPanelView = lazy(() =>
   import('./components/admin/AdminPanelView').then((m) => ({ default: m.AdminPanelView }))
 );
+const StudentSettingsView = lazy(() =>
+  import('./components/StudentSettingsView').then((m) => ({ default: m.StudentSettingsView }))
+);
 
 type NavigatePayload = { studentId?: string; teacherId?: string; fatwaId?: string };
 
@@ -50,6 +53,7 @@ const SECTION_PATHS: Record<NavSection, string> = {
   fatwa_dashboard: 'fatwa',
   fatwa_questions: 'fatwa/questions',
   fatwa_archive: 'fatwa/archive',
+  student_profile: 'student-profile',
 };
 
 const PATH_SECTIONS: Record<string, NavSection> = Object.fromEntries(
@@ -119,8 +123,8 @@ function StaffPortal() {
     return <Navigate to={`/staff/${SECTION_PATHS.fatwa_dashboard}`} replace />;
   }
 
-  // Students are strictly scoped: only attendance, mutala, lessons, and teachers allowed
-  if (user.role === 'student' && !['attendance', 'mutala', 'lessons', 'teachers'].includes(section)) {
+  // Students are strictly scoped: only attendance, mutala, lessons, teachers, and profile/settings allowed
+  if (user.role === 'student' && !['attendance', 'mutala', 'lessons', 'teachers', 'student_profile'].includes(section)) {
     return <Navigate to={`/staff/${SECTION_PATHS.attendance}`} replace />;
   }
 
@@ -144,6 +148,7 @@ function StaffPortal() {
         {section === 'exams' && <ExamsView />}
         {section === 'research' && <ResearchView />}
         {section === 'reports' && <ReportsView />}
+        {section === 'student_profile' && <StudentSettingsView />}
       </Suspense>
     </Layout>
   );

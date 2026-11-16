@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { Shield, BookOpen, GraduationCap, Globe, Lock, Phone, ArrowUpRight } from 'lucide-react';
+import React, { useState } from 'react';
+import { Shield, BookOpen, GraduationCap, Globe, Lock, Phone, ArrowUpRight, User } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
-import { STATIC_TEACHERS } from '../lib/staticInitialData';
 
 interface LoginScreenProps {
   onOpenPublicPortal?: () => void;
@@ -27,10 +26,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const [studentMobile, setStudentMobile] = useState('');
   const [studentPin, setStudentPin] = useState('');
 
-  // Teacher state
-  const [teachers, setTeachers] = useState<any[]>(Array.isArray(STATIC_TEACHERS) ? STATIC_TEACHERS : []);
-  const [teacherCode, setTeacherCode] = useState('TCH-001');
-  const [teacherPin, setTeacherPin] = useState('123456');
+  // Teacher state (Code or Mobile + PIN only — NO teacher names displayed)
+  const [teacherCode, setTeacherCode] = useState('');
+  const [teacherPin, setTeacherPin] = useState('');
 
   // Admin state
   const [adminEmail, setAdminEmail] = useState('nazim@naafay.edu.pk');
@@ -38,15 +36,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
   const [loginError, setLoginError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-
-  useEffect(() => {
-    fetch('/api/teachers')
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (Array.isArray(data) && data.length > 0) setTeachers(data);
-      })
-      .catch(() => {});
-  }, []);
 
   const handleStudentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -230,19 +219,22 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             <form onSubmit={handleTeacherSubmit} className="mt-5 space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-[#0B2545] mb-1.5">
-                  {lang === 'ur' ? 'استاذ / مفتی' : 'Teacher / Mufti'}
+                  {lang === 'ur' ? 'استاذ کوڈ یا موبائل نمبر' : 'Teacher Code or Mobile'}
                 </label>
-                <select
-                  value={teacherCode}
-                  onChange={(e) => setTeacherCode(e.target.value)}
-                  className="w-full rounded-lg border border-[#D9E2EC] bg-[#F8FAFC] px-3 py-2.5 text-xs font-medium text-[#0F1F38] focus:border-[#057A4B] focus:bg-white focus:outline-none transition-colors"
-                >
-                  {teachers.map((tch) => (
-                    <option key={tch.id || tch.teacher_code} value={tch.teacher_code || tch.id}>
-                      {tch.full_name_ur || tch.full_name} ({tch.teacher_code})
-                    </option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <User className={`h-4 w-4 text-[#627D98] absolute top-1/2 -translate-y-1/2 ${lang === 'ur' ? 'right-3' : 'left-3'}`} />
+                  <input
+                    type="text"
+                    dir="ltr"
+                    required
+                    placeholder={lang === 'ur' ? 'TCH-001 یا 03001234561' : 'TCH-001 or 03001234561'}
+                    value={teacherCode}
+                    onChange={(e) => setTeacherCode(e.target.value)}
+                    className={`w-full rounded-lg border border-[#D9E2EC] bg-[#F8FAFC] py-2.5 text-xs font-mono-code focus:border-[#057A4B] focus:bg-white focus:outline-none transition-colors ${
+                      lang === 'ur' ? 'pr-9 pl-3' : 'pl-9 pr-3'
+                    }`}
+                  />
+                </div>
               </div>
 
               <div>

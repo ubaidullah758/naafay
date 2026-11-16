@@ -21,6 +21,7 @@ import {
   ShieldCheck,
   PanelLeftClose,
   PanelLeftOpen,
+  UserCog,
 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth, UserRole } from '../context/AuthContext';
@@ -40,7 +41,8 @@ export type NavSection =
   | 'reports'
   | 'fatwa_dashboard'
   | 'fatwa_questions'
-  | 'fatwa_archive';
+  | 'fatwa_archive'
+  | 'student_profile';
 
 interface LayoutProps {
   activeSection: NavSection;
@@ -100,6 +102,7 @@ export const Layout: React.FC<LayoutProps> = ({ activeSection, onNavigate, onOpe
     { id: 'mutala', label: t('navMutala'), icon: <BookOpenCheck className="h-4 w-4 shrink-0" /> },
     { id: 'lessons', label: t('navLessons'), icon: <BookMarked className="h-4 w-4 shrink-0" /> },
     { id: 'teachers', label: t('navTeachers'), icon: <GraduationCap className="h-4 w-4 shrink-0" /> },
+    { id: 'student_profile', label: lang === 'ur' ? 'پروفائل و سیٹنگز' : 'Profile & Settings', icon: <UserCog className="h-4 w-4 shrink-0" /> },
   ];
 
   const adminNav: Array<{ id: NavSection; label: string; icon: React.ReactNode }> =

@@ -91,6 +91,8 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<ActiveUser | null>(() => {
     const saved = localStorage.getItem('naafay_active_role') as UserRole | null;
+    if (!saved) return null; // Never auto-login unauthenticated visitors!
+
     if (saved === 'student') {
       const storedStu = localStorage.getItem('naafay_active_student_user');
       if (storedStu) {
@@ -102,7 +104,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       return ROLE_PERSONAS.student;
     }
-    if (saved === 'mufti' || saved === 'senior_mufti') {
+    if (saved === 'teacher' || saved === 'mufti' || saved === 'senior_mufti') {
       const storedTch = localStorage.getItem('naafay_active_teacher_user');
       if (storedTch) {
         try {
@@ -113,15 +115,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       return ROLE_PERSONAS[saved] || ROLE_PERSONAS.mufti;
     }
+    if (saved === 'admin') {
+      const storedAdm = localStorage.getItem('naafay_active_admin_user');
+      if (storedAdm) {
+        try {
+          return JSON.parse(storedAdm);
+        } catch {}
+      }
+      return ROLE_PERSONAS.admin;
+    }
     if (saved && ROLE_PERSONAS[saved]) return ROLE_PERSONAS[saved];
-    return ROLE_PERSONAS.admin;
+    return null;
   });
 
   const signInAsRole = (role: UserRole) => {
     const persona = ROLE_PERSONAS[role];
     setUser(persona);
     localStorage.setItem('naafay_active_role', role);
-    if (role !== 'student') {
+    if (role === 'admin') {
+      localStorage.setItem('naafay_active_admin_user', JSON.stringify(persona));
+      localStorage.removeItem('naafay_active_student_user');
+      localStorage.removeItem('naafay_active_teacher_user');
+    } else if (role !== 'student') {
       localStorage.removeItem('naafay_active_student_user');
     }
   };
@@ -146,6 +161,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     setUser(json.user);
     localStorage.setItem('naafay_active_role', 'admin');
+    localStorage.setItem('naafay_active_admin_user', JSON.stringify(json.user));
     localStorage.removeItem('naafay_active_student_user');
     localStorage.removeItem('naafay_active_teacher_user');
   };
@@ -205,6 +221,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signOut = () => {
     setUser(null);
     localStorage.removeItem('naafay_active_role');
+    localStorage.removeItem('naafay_active_admin_user');
     localStorage.removeItem('naafay_active_student_user');
     localStorage.removeItem('naafay_active_teacher_user');
   };
