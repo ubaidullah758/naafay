@@ -33,6 +33,10 @@ export const MutalaView: React.FC = () => {
   const { lang, pick } = useLanguage();
   const { user } = useAuth();
 
+  // Sub-Navigation: روزانہ مطالعہ لاگز و ریکارڈ vs یومیہ کارگزاری (اساتذہ اسباق و طلبہ مطالعہ)
+  type MutalaSubTab = 'logs' | 'academic_sheet';
+  const [activeTab, setActiveTab] = useState<MutalaSubTab>('logs');
+
   // Timeframe filters: روزانہ (Daily), ہفتہ وار (Weekly), ماہانہ (Monthly), سالانہ (Annual)
   const [timeframe, setTimeframe] = useState<'daily' | 'weekly' | 'monthly' | 'annual'>('daily');
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
@@ -50,6 +54,13 @@ export const MutalaView: React.FC = () => {
   const [books, setBooks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Academic Sheet (اساتذہ اسباق و طلبہ مطالعہ)
+  const [academicReports, setAcademicReports] = useState<{ dailyLessons: any[]; dailyMutala: any[] }>({
+    dailyLessons: [],
+    dailyMutala: [],
+  });
+  const [loadingAcademic, setLoadingAcademic] = useState(false);
 
   // Modals
   const [modalOpen, setModalOpen] = useState(false);
@@ -99,9 +110,42 @@ export const MutalaView: React.FC = () => {
     }
   };
 
+  const loadAcademicSheet = async (targetDate: string) => {
+    setLoadingAcademic(true);
+    try {
+      const [attRes, lesRes] = await Promise.allSettled([
+        apiFetch(`/api/attendance/reports?date=${targetDate}`, {}, user),
+        apiFetch(`/api/lessons?date=${targetDate}`, {}, user),
+      ]);
+      const attData = attRes.status === 'fulfilled' ? attRes.value : null;
+      const lesData = lesRes.status === 'fulfilled' ? lesRes.value : null;
+
+      const lessonsList = Array.isArray(attData?.dailyLessons) && attData.dailyLessons.length > 0
+        ? attData.dailyLessons
+        : Array.isArray(lesData?.lessons)
+        ? lesData.lessons
+        : Array.isArray(lesData)
+        ? lesData
+        : [];
+
+      const mutalaList = Array.isArray(attData?.dailyMutala) ? attData.dailyMutala : [];
+
+      setAcademicReports({
+        dailyLessons: lessonsList,
+        dailyMutala: mutalaList,
+      });
+    } catch (e) {
+      console.warn('Failed to load academic reports', e);
+    } finally {
+      setLoadingAcademic(false);
+    }
+  };
+
   useEffect(() => {
-    load();
-  }, [selectedStudentId, selectedBookId, user?.role]);
+    if (activeTab === 'academic_sheet') {
+      loadAcademicSheet(selectedDate);
+    }
+  }, [activeTab, selectedDate]);
 
   // Compute week range for selectedDate
   const weekBounds = useMemo(() => {
@@ -249,10 +293,51 @@ export const MutalaView: React.FC = () => {
     return <ErrorState message={error} onRetry={load} />;
   }
 
+  const displayLessons = academicReports.dailyLessons || [];
+  const displayMutala = (academicReports.dailyMutala && academicReports.dailyMutala.length > 0)
+    ? academicReports.dailyMutala
+    : logs
+        .filter((l) => l.study_date === selectedDate)
+        .map((l) => ({
+          ...l,
+          full_name_ur: l.student_name_ur || l.full_name_ur,
+          full_name: l.student_name || l.full_name,
+        }));
+
   return (
     <div className="space-y-4">
-      {/* 1. TIMEFRAME FILTERS BAR & ACTIONS */}
-      <div className="no-print rounded-xl border border-[#DCE4E0] bg-white p-3.5 sm:p-4 shadow-sm space-y-3 font-urdu">
+      {/* Top Sub-Navigation Tabs */}
+      <div className="no-print border-b border-[#DCE4E0] overflow-x-auto">
+        <div className="flex items-center gap-1 min-w-max">
+          <button
+            type="button"
+            onClick={() => setActiveTab('logs')}
+            className={`whitespace-nowrap shrink-0 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors ${
+              activeTab === 'logs'
+                ? 'border-[#065F46] text-[#065F46] font-bold'
+                : 'border-transparent text-[#5A6D65] hover:text-[#111C18]'
+            }`}
+          >
+            {lang === 'ur' ? '📚 روزانہ مطالعہ لاگز و ریکارڈ' : '📚 Study Logs & Entries'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('academic_sheet')}
+            className={`whitespace-nowrap shrink-0 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors ${
+              activeTab === 'academic_sheet'
+                ? 'border-[#065F46] text-[#065F46] font-bold'
+                : 'border-transparent text-[#5A6D65] hover:text-[#111C18]'
+            }`}
+          >
+            {lang === 'ur' ? '📖 یومیہ کارگزاری (اساتذہ اسباق و طلبہ مطالعہ)' : '📖 Daily Academic Log (Lessons & Mutala)'}
+          </button>
+        </div>
+      </div>
+
+      {activeTab === 'logs' && (
+        <>
+          {/* 1. TIMEFRAME FILTERS BAR & ACTIONS */}
+          <div className="no-print rounded-xl border border-[#DCE4E0] bg-white p-3.5 sm:p-4 shadow-sm space-y-3 font-urdu">
         <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
           {/* Daily, Weekly, Monthly, Annual Filter Tabs */}
           <div className="inline-flex items-center gap-1 p-1 rounded-lg bg-[#F0F4F2] border border-[#DCE4E0]/80">
@@ -775,6 +860,227 @@ export const MutalaView: React.FC = () => {
               );
             })}
           </div>
+        </div>
+      )}
+        </>
+      )}
+
+      {/* 2. ACADEMIC SHEET TAB (یومیہ کارگزاری: اساتذہ اسباق و طلبہ مطالعہ) */}
+      {activeTab === 'academic_sheet' && (
+        <div className="space-y-4 font-urdu">
+          {/* Controls Bar */}
+          <div className="no-print flex flex-wrap items-center justify-between gap-3 bg-white p-3 rounded-lg border border-[#DCE4E0]">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-semibold text-[#5A6D65]">
+                {lang === 'ur' ? 'تاریخ منتخب کریں:' : 'Select Date:'}
+              </span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setSelectedDate(addDaysLocal(-1, new Date(selectedDate)))}
+                  className="p-1.5 rounded-lg border border-[#DCE4E0] bg-white text-[#5A6D65] hover:bg-[#F6F8F7]"
+                  title="پچھلا دن"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="rounded-lg border border-[#DCE4E0] px-2.5 py-1.5 text-xs bg-white font-mono-code"
+                />
+                <button
+                  type="button"
+                  onClick={() => setSelectedDate(addDaysLocal(1, new Date(selectedDate)))}
+                  className="p-1.5 rounded-lg border border-[#DCE4E0] bg-white text-[#5A6D65] hover:bg-[#F6F8F7]"
+                  title="اگلا دن"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedDate(todayLocal())}
+                  className="px-2.5 py-1.5 rounded-lg bg-[#E6F4EA] text-[#065F46] font-bold text-xs"
+                >
+                  آج
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="inline-flex items-center gap-1.5 rounded-md bg-[#0B2545] px-3.5 py-1.5 text-xs font-medium text-white hover:bg-[#103563] shadow-sm whitespace-nowrap"
+            >
+              <Printer className="h-3.5 w-3.5" />
+              <span>{lang === 'ur' ? 'پرنٹ شیٹ (A4 Print / PDF)' : 'Print Register'}</span>
+            </button>
+          </div>
+
+          {/* Official Academic Sheet */}
+          {loadingAcademic ? (
+            <div className="py-16 text-center text-gray-500 font-urdu text-sm bg-white rounded-lg border border-[#DCE4E0]">
+              تعلیمی کارگزاری شیٹ لوڈ ہو رہی ہے...
+            </div>
+          ) : (
+            <div className="bg-white border-2 border-black p-6 sm:p-8 rounded-lg space-y-6 max-w-4xl mx-auto shadow-sm print:border-none print:shadow-none print:p-0">
+              {/* Header */}
+              <div className="text-center space-y-1 pb-1">
+                <h2 className="text-xl sm:text-2xl font-bold text-black font-urdu tracking-wide inline-block border-b-2 border-black pb-1">
+                  یومیہ کارگزاری تخصص فی الفقہ والافتاء (اسباق و مطالعہ)
+                </h2>
+                <div className="text-xs sm:text-sm text-black font-urdu pt-1 font-semibold">
+                  {formatUrduFullDate(selectedDate)}
+                </div>
+              </div>
+
+              {/* Section 1: اساتذہ کرام اسباق کارگزاری */}
+              <div className="space-y-2">
+                <div className="text-center font-bold text-sm sm:text-base text-black font-urdu">
+                  اساتذہ کرام اسباق کارگزاری ({displayLessons.length} اسباق)
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs border-collapse border-2 border-black text-center font-urdu">
+                    <thead>
+                      <tr className="bg-[#FEF3C7] text-black font-bold">
+                        <th className="border border-black py-2.5 px-2 text-center font-bold w-[18%]">نام اساتذہ کرام</th>
+                        <th className="border border-black py-2.5 px-2 text-center font-bold w-[16%]">نام کتاب</th>
+                        <th className="border border-black py-2.5 px-2 text-center font-bold w-[16%]">سبق حاضری/اوقات</th>
+                        <th className="border border-black py-2.5 px-3 text-center font-bold w-[24%]">عبارت (ابتداء تا انتہاء)</th>
+                        <th className="border border-black py-2.5 px-2 text-center font-bold w-[10%]">صفحہ (ابتداء تا انتہاء)</th>
+                        <th className="border border-black py-2.5 px-2 text-center font-bold w-[8%]">یومیہ صفحات</th>
+                        <th className="border border-black py-2.5 px-2 text-center font-bold w-[8%]">تاحال کل صفحات</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {displayLessons.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} className="border border-black py-6 text-center text-gray-500 font-urdu">
+                            اس تاریخ ({selectedDate}) کے اساتذہ کرام کے تدریسی اسباق کا کوئی ریکارڈ درج نہیں ہے۔
+                          </td>
+                        </tr>
+                      ) : (
+                        displayLessons.map((l: any, idx: number) => {
+                          const pageSpan = l.end_position && l.end_position !== l.start_position
+                            ? `${l.end_position} تا ${l.start_position}`
+                            : (l.start_position || '—');
+                          const textSpan = l.end_title
+                            ? `${l.start_title} تا ${l.end_title}`
+                            : (l.start_title || '—');
+                          return (
+                            <tr key={l.id || idx} className="hover:bg-amber-50/40">
+                              <td className="border border-black py-2 px-2 font-semibold text-black">
+                                {pick(l.teacher_name, l.teacher_name_ur)}
+                              </td>
+                              <td className="border border-black py-2 px-2">
+                                {pick(l.book_title_en, l.book_title_ur)}
+                              </td>
+                              <td className="border border-black py-2 px-2">
+                                {l.lesson_timing || (l.attendance_status === 'present' ? 'حاضر' : 'حاضر')}
+                              </td>
+                              <td className="border border-black py-2 px-3 text-start">
+                                {textSpan}
+                              </td>
+                              <td className="border border-black py-2 px-2 font-mono-code font-bold">
+                                {pageSpan}
+                              </td>
+                              <td className="border border-black py-2 px-2 font-bold font-mono-code">
+                                {l.daily_pages || 1}
+                              </td>
+                              <td className="border border-black py-2 px-2 font-bold font-mono-code">
+                                {l.cumulative_pages || '—'}
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Section 2: مطالعہ کارگزاری */}
+              <div className="space-y-2 pt-2">
+                <div className="text-center font-bold text-sm sm:text-base text-black font-urdu">
+                  طلباء کرام یومیہ مطالعہ کارگزاری ({displayMutala.length} اندراجات)
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs border-collapse border-2 border-black text-center font-urdu">
+                    <thead>
+                      <tr className="bg-[#FEF3C7] text-black font-bold">
+                        <th className="border border-black py-2.5 px-2 text-center font-bold w-[18%]">نام طلباء کرام</th>
+                        <th className="border border-black py-2.5 px-3 text-center font-bold w-[36%]">عبارت (ابتداء تا انتہاء)</th>
+                        <th className="border border-black py-2.5 px-2 text-center font-bold w-[16%]">صفحہ نمبر (ابتداء تا انتہاء)</th>
+                        <th className="border border-black py-2.5 px-2 text-center font-bold w-[10%]">یومیہ کل صفحات</th>
+                        <th className="border border-black py-2.5 px-2 text-center font-bold w-[10%]">تاحال کل صفحات</th>
+                        <th className="border border-black py-2.5 px-2 text-center font-bold w-[10%]">جزئیات</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {displayMutala.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="border border-black py-6 text-center text-gray-500 font-urdu">
+                            اس تاریخ ({selectedDate}) کا طلبہ کے مطالعے کا کوئی ریکارڈ درج نہیں ہے۔
+                          </td>
+                        </tr>
+                      ) : (
+                        displayMutala.map((m: any, idx: number) => {
+                          const pageSpan = m.end_position && m.end_position !== m.start_position
+                            ? `${m.end_position} تا ${m.start_position}`
+                            : (m.start_position || '—');
+                          const textSpan = m.end_title
+                            ? `${m.start_title} تا ${m.end_title}`
+                            : (m.start_title || m.chapter || '—');
+                          const studentName = m.full_name_ur || m.student_name_ur || pick(m.full_name, m.full_name_ur);
+                          return (
+                            <tr key={m.id || idx} className="hover:bg-amber-50/40">
+                              <td className="border border-black py-2 px-2 font-semibold text-black">
+                                {studentName}{' '}
+                                {m.student_code && (
+                                  <span className="text-[10px] text-gray-600 font-mono-code font-normal">
+                                    ({m.student_code})
+                                  </span>
+                                )}
+                              </td>
+                              <td className="border border-black py-2 px-3 text-start">
+                                {textSpan}
+                              </td>
+                              <td className="border border-black py-2 px-2 font-mono-code font-bold">
+                                {pageSpan}
+                              </td>
+                              <td className="border border-black py-2 px-2 font-bold font-mono-code">
+                                {m.daily_pages || 1}
+                              </td>
+                              <td className="border border-black py-2 px-2 font-bold font-mono-code">
+                                {m.cumulative_pages || '—'}
+                              </td>
+                              <td className="border border-black py-2 px-2 font-bold text-[#065F46] font-mono-code">
+                                {m.juziyat_count || m.juziyat_notes || '—'}
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Signatures */}
+              <div className="pt-8 pb-3 flex items-end justify-between px-6 sm:px-12 text-xs font-urdu text-black">
+                <div className="text-center space-y-1">
+                  <div className="font-bold text-sm sm:text-base text-black">سراج الحق</div>
+                  <div className="text-gray-700 font-medium">(دستخط نگران)</div>
+                  <div className="pt-2 text-base font-serif italic text-gray-500">سراج الحق ✍️</div>
+                </div>
+                <div className="text-center space-y-1">
+                  <div className="font-bold text-sm sm:text-base text-black">مفتی عرفان خالد صاحب</div>
+                  <div className="text-gray-700 font-medium">(دستخط ناظم)</div>
+                  <div className="pt-2 text-base font-serif italic text-gray-500">عرفان خالد ✍️</div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
