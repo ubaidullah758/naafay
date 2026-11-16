@@ -533,6 +533,8 @@ export const MutalaView: React.FC = () => {
     }
     setModalOpen(false);
     setEditingLog(null);
+    loadAcademicSheet(selectedDate);
+    await load();
   };
 
   const handleDelete = async () => {

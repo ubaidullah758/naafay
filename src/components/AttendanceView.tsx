@@ -150,6 +150,46 @@ export const AttendanceView: React.FC = () => {
         user
       );
 
+      // Instantly update local row state for immediate responsive feedback
+      setRows((prev) => {
+        const hasMatch = prev.some((r) => r.student_id === user.studentId || r.student_code === user.studentCode);
+        if (!hasMatch) {
+          const newRow = {
+            student_id: user.studentId,
+            student_code: user.studentCode,
+            full_name_ur: user.nameUr || 'طالب علم',
+            class_name_ur: user.classNameUr || 'تخصص فی الفقہ',
+            class_id: effClassId,
+            sessions: {
+              [sessionId]: {
+                id: 'loc-' + Date.now(),
+                status,
+                remarks: effRemarks,
+                late_minutes: effLateMin,
+              },
+            },
+          };
+          return [newRow, ...prev];
+        }
+        return prev.map((r) => {
+          if (r.student_id === user.studentId || r.student_code === user.studentCode) {
+            return {
+              ...r,
+              sessions: {
+                ...(r.sessions || {}),
+                [sessionId]: {
+                  id: 'loc-' + Date.now(),
+                  status,
+                  remarks: effRemarks,
+                  late_minutes: effLateMin,
+                },
+              },
+            };
+          }
+          return r;
+        });
+      });
+
       setSelfModal(null);
       setBanner(
         lang === 'ur'
@@ -789,9 +829,17 @@ export const AttendanceView: React.FC = () => {
 
       {/* 1. STUDENT SELF-ATTENDANCE SUBMISSION (FOR STUDENT LOGGED IN) */}
       {subTab === 'student_self' && (() => {
-        const myRow = rows.find(
+        const foundMatch = rows.find(
           (r) => r.student_id === user?.studentId || r.student_code === user?.studentCode
-        ) || rows[0];
+        );
+        const myRow = foundMatch || {
+          student_id: user?.studentId || 'stu-1',
+          student_code: user?.studentCode || 'ST-001',
+          full_name_ur: user?.nameUr || user?.name || 'طالب علم',
+          class_name_ur: user?.classNameUr || 'تخصص فی الفقہ',
+          class_id: user?.classId || 'cls-tak1',
+          sessions: {},
+        };
 
         return (
           <div className="space-y-6">

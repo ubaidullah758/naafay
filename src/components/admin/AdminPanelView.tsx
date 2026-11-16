@@ -32,7 +32,7 @@ interface AdminPanelViewProps {
   onNavigate: (section: NavSection, payload?: { studentId?: string; teacherId?: string; fatwaId?: string }) => void;
 }
 
-type AdminMainTab = 'overview' | 'part1' | 'part2' | 'part3' | 'security' | 'users' | 'audit';
+type AdminMainTab = 'overview' | 'part1' | 'part2' | 'part3' | 'security' | 'users';
 type Part1SubTab = 'students' | 'teachers' | 'classes' | 'subjects' | 'records';
 
 export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onNavigate }) => {
@@ -64,6 +64,7 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onNavigate }) =>
   const [bookModal, setBookModal] = useState<any | null>(null);
   const [examModal, setExamModal] = useState<any | null>(null);
   const [lessonModal, setLessonModal] = useState<any | null>(null);
+  const [mutalaModal, setMutalaModal] = useState<any | null>(null);
 
   // Part 2 Modals
   const [fatwaModal, setFatwaModal] = useState<any | null>(null);
@@ -271,13 +272,43 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onNavigate }) =>
   const saveStudent = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const cls = (data.classes || []).find((c: any) => c.id === studentModal.class_id);
+      const ayr = (data.academicYears || []).find((y: any) => y.id === studentModal.academic_year_id);
+      const bat = (data.batches || []).find((b: any) => b.id === studentModal.batch_id);
+
+      const payload = {
+        ...studentModal,
+        class_name_ur: cls?.name_ur || studentModal.class_name_ur,
+        class_name_en: cls?.name_en || studentModal.class_name_en,
+        year_title_ur: ayr?.title_ur || studentModal.year_title_ur,
+        year_title_en: ayr?.title_en || studentModal.year_title_en,
+        batch_name_ur: bat?.name_ur || studentModal.batch_name_ur,
+        batch_name_en: bat?.name_en || studentModal.batch_name_en,
+      };
+
       if (studentModal.id) {
-        await apiFetch(`/api/students/${studentModal.id}`, { method: 'PUT', body: JSON.stringify(studentModal) }, user);
+        await apiFetch(`/api/students/${studentModal.id}`, { method: 'PUT', body: JSON.stringify(payload) }, user);
       } else {
-        await apiFetch('/api/students', { method: 'POST', body: JSON.stringify(studentModal) }, user);
+        await apiFetch('/api/students', { method: 'POST', body: JSON.stringify(payload) }, user);
       }
       setStudentModal(null);
       notify(lang === 'ur' ? 'طالب علم کا ریکارڈ محفوظ ہو گیا' : 'Student saved');
+      await load();
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
+  const saveMutala = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      if (mutalaModal.id) {
+        await apiFetch(`/api/admin/mutala/${mutalaModal.id}`, { method: 'PUT', body: JSON.stringify(mutalaModal) }, user);
+      } else {
+        await apiFetch('/api/mutala', { method: 'POST', body: JSON.stringify(mutalaModal) }, user);
+      }
+      setMutalaModal(null);
+      notify(lang === 'ur' ? 'مطالعہ ریکارڈ محفوظ ہو گیا' : 'Mutala saved');
       await load();
     } catch (err: any) {
       setError(err.message);
@@ -508,7 +539,6 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onNavigate }) =>
     { id: 'part3', label: lang === 'ur' ? 'حصہ سوم: پبلک پورٹل' : 'Part 3: Public Portal', icon: <Globe className="h-4 w-4 shrink-0" /> },
     { id: 'security', label: lang === 'ur' ? 'پاس ورڈ و سیکیورٹی' : 'Security & Passwords', icon: <KeyRound className="h-4 w-4 shrink-0" /> },
     { id: 'users', label: lang === 'ur' ? 'صارفین و عہدے' : 'Users & Roles', icon: <Users className="h-4 w-4 shrink-0" /> },
-    { id: 'audit', label: lang === 'ur' ? 'آڈٹ لاگ' : 'Audit Logs', icon: <History className="h-4 w-4 shrink-0" /> },
   ];
 
   return (
@@ -1121,10 +1151,41 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onNavigate }) =>
                 </div>
               </div>
 
+              {/* Live Attendance Management Card */}
+              <div className="rounded-lg border border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-white p-5 lg:col-span-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="h-2.5 w-2.5 rounded-full bg-emerald-600 animate-pulse" />
+                      <h3 className="text-sm font-bold text-[#0B2545]">{lang === 'ur' ? 'یومیہ حاضری کنٹرول و جائزہ' : 'Live Attendance Sheet & Control'}</h3>
+                    </div>
+                    <p className="mt-1 text-xs text-[#5A6D65]">
+                      {lang === 'ur'
+                        ? 'طلبہ و اساتذہ کی روزانہ سہ وقتی حاضری، تاخیر، رخصت اور غیر حاضری کا براہ راست اندراج و ترمیم کریں۔'
+                        : 'Manage daily three-session student attendance, leaves, late entries, and corrections in real time.'}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onNavigate('attendance')}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#057A4B] px-4 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-[#04633D] shrink-0"
+                  >
+                    <span>{lang === 'ur' ? 'مکمل حاضری شیٹ کھولیں و تبدیل کریں' : 'Open Live Attendance Sheet'}</span>
+                  </button>
+                </div>
+              </div>
+
               {/* Lessons */}
               <div className="rounded-lg border border-[#D9E2EC] bg-white">
                 <div className="px-5 py-4 border-b border-[#EDF2F7] flex items-center justify-between">
                   <h3 className="text-sm font-bold text-[#0B2545]">{lang === 'ur' ? 'تدریسی اسباق (Lessons)' : 'Lessons'}</h3>
+                  <button
+                    type="button"
+                    onClick={() => onNavigate('lessons')}
+                    className="text-xs font-medium text-[#057A4B] hover:underline"
+                  >
+                    {lang === 'ur' ? 'اسباق صفحہ کھولیں' : 'Open Lessons Page'}
+                  </button>
                 </div>
                 <div className="divide-y divide-[#EDF2F7] max-h-72 overflow-y-auto">
                   {data.lessons.map((lr: any) => (
@@ -1160,8 +1221,15 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onNavigate }) =>
 
               {/* Mutala Logs */}
               <div className="rounded-lg border border-[#D9E2EC] bg-white">
-                <div className="px-5 py-4 border-b border-[#EDF2F7]">
+                <div className="px-5 py-4 border-b border-[#EDF2F7] flex items-center justify-between">
                   <h3 className="text-sm font-bold text-[#0B2545]">{lang === 'ur' ? 'روزانہ مطالعہ (Mutala)' : 'Daily Mutala Logs'}</h3>
+                  <button
+                    type="button"
+                    onClick={() => onNavigate('mutala')}
+                    className="text-xs font-medium text-[#057A4B] hover:underline"
+                  >
+                    {lang === 'ur' ? 'مطالعہ صفحہ کھولیں' : 'Open Mutala Page'}
+                  </button>
                 </div>
                 <div className="divide-y divide-[#EDF2F7] max-h-72 overflow-y-auto">
                   {data.mutalaLogs.map((sl: any) => (
@@ -1172,19 +1240,24 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onNavigate }) =>
                         </div>
                         <div className="text-[#486581]">{sl.chapter} ({sl.study_date})</div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          requestDelete(
-                            lang === 'ur' ? 'مطالعہ ریکارڈ حذف کریں' : 'Delete Mutala Log',
-                            lang === 'ur' ? 'کیا آپ یہ مطالعہ ریکارڈ حذف کرنا چاہتے ہیں؟' : 'Delete this study log?',
-                            () => apiFetch(`/api/admin/mutala/${sl.id}`, { method: 'DELETE' }, user)
-                          )
-                        }
-                        className="p-1.5 rounded hover:bg-red-50 text-red-700"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                      <div className="inline-flex items-center gap-1.5 shrink-0">
+                        <button type="button" onClick={() => setMutalaModal({ ...sl })} className="p-1.5 rounded hover:bg-[#E2E8F0]">
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            requestDelete(
+                              lang === 'ur' ? 'مطالعہ ریکارڈ حذف کریں' : 'Delete Mutala Log',
+                              lang === 'ur' ? 'کیا آپ یہ مطالعہ ریکارڈ حذف کرنا چاہتے ہیں؟' : 'Delete this study log?',
+                              () => apiFetch(`/api/admin/mutala/${sl.id}`, { method: 'DELETE' }, user)
+                            )
+                          }
+                          className="p-1.5 rounded hover:bg-red-50 text-red-700"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -2023,44 +2096,35 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onNavigate }) =>
         </div>
       )}
 
-      {/* TAB: AUDIT LOGS */}
-      {tab === 'audit' && (
-        <div className="rounded-lg border border-[#D9E2EC] bg-white">
-          <div className="px-5 py-4 border-b border-[#EDF2F7]">
-            <h3 className="text-sm font-bold text-[#0B2545]">{lang === 'ur' ? 'نظامی آڈٹ لاگ' : 'System Audit Trail'}</h3>
-          </div>
-          <div className="divide-y divide-[#EDF2F7]">
-            {data.auditLogs.map((al: any) => (
-              <div key={al.id} className="px-5 py-3 flex items-center justify-between gap-4 text-xs">
-                <div>
-                  <div className="font-mono-code font-semibold text-[#0B2545]">{al.action}</div>
-                  <div className="text-[#486581]">
-                    {al.actor_name} · {al.entity_type} · {al.details}
-                  </div>
-                </div>
-                <span className="font-mono-code text-[11px] text-[#627D98] shrink-0">{(al.created_at || '').slice(0, 19)}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* MODALS */}
       {studentModal && (
         <Modal title={studentModal.id ? (lang === 'ur' ? 'طالب علم میں ترمیم' : 'Edit Student') : lang === 'ur' ? 'نیا طالب علم' : 'New Student'} onClose={() => setStudentModal(null)}>
           <form onSubmit={saveStudent} className="space-y-3 text-xs">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <input required placeholder={lang === 'ur' ? 'مکمل نام' : 'Full Name'} value={studentModal.full_name || ''} onChange={(e) => setStudentModal({ ...studentModal, full_name: e.target.value })} className="rounded border border-[#D9E2EC] px-3 py-2" />
-              <input placeholder={lang === 'ur' ? 'مکمل نام' : 'Full Name'} dir="rtl" value={studentModal.full_name_ur || ''} onChange={(e) => setStudentModal({ ...studentModal, full_name_ur: e.target.value })} className="rounded border border-[#D9E2EC] px-3 py-2" />
-              <input required placeholder={lang === 'ur' ? 'ولدیت' : 'Father Name'} value={studentModal.father_name || ''} onChange={(e) => setStudentModal({ ...studentModal, father_name: e.target.value })} className="rounded border border-[#D9E2EC] px-3 py-2" />
-              <input placeholder={lang === 'ur' ? 'ولدیت' : 'Father Name'} dir="rtl" value={studentModal.father_name_ur || ''} onChange={(e) => setStudentModal({ ...studentModal, father_name_ur: e.target.value })} className="rounded border border-[#D9E2EC] px-3 py-2" />
+              <input required placeholder={lang === 'ur' ? 'مکمل نام (اردو)' : 'Full Name (Urdu)'} dir="rtl" value={studentModal.full_name_ur || ''} onChange={(e) => setStudentModal({ ...studentModal, full_name_ur: e.target.value, full_name: studentModal.full_name || e.target.value })} className="rounded border border-[#D9E2EC] px-3 py-2" />
+              <input placeholder={lang === 'ur' ? 'مکمل نام (انگریزی)' : 'Full Name (English)'} value={studentModal.full_name || ''} onChange={(e) => setStudentModal({ ...studentModal, full_name: e.target.value })} className="rounded border border-[#D9E2EC] px-3 py-2" />
+              <input required placeholder={lang === 'ur' ? 'ولدیت (اردو)' : 'Father Name (Urdu)'} dir="rtl" value={studentModal.father_name_ur || ''} onChange={(e) => setStudentModal({ ...studentModal, father_name_ur: e.target.value, father_name: studentModal.father_name || e.target.value })} className="rounded border border-[#D9E2EC] px-3 py-2" />
+              <input placeholder={lang === 'ur' ? 'ولدیت (انگریزی)' : 'Father Name (English)'} value={studentModal.father_name || ''} onChange={(e) => setStudentModal({ ...studentModal, father_name: e.target.value })} className="rounded border border-[#D9E2EC] px-3 py-2" />
               <input required placeholder="03001234567" dir="ltr" value={studentModal.phone || ''} onChange={(e) => setStudentModal({ ...studentModal, phone: e.target.value })} className="rounded border border-[#D9E2EC] px-3 py-2 font-mono-code" />
-              <select value={studentModal.class_id || ''} onChange={(e) => setStudentModal({ ...studentModal, class_id: e.target.value })} className="rounded border border-[#D9E2EC] px-3 py-2">
-                {data.classes.map((cls: any) => (
+              <select value={studentModal.class_id || ''} onChange={(e) => setStudentModal({ ...studentModal, class_id: e.target.value })} className="rounded border border-[#D9E2EC] px-3 py-2 bg-white">
+                <option value="">{lang === 'ur' ? 'درجہ منتخب کریں' : 'Select Class'}</option>
+                {(data.classes || []).map((cls: any) => (
                   <option key={cls.id} value={cls.id}>{pick(cls.name_en, cls.name_ur)}</option>
                 ))}
               </select>
-              <select value={studentModal.status || 'active'} onChange={(e) => setStudentModal({ ...studentModal, status: e.target.value })} className="rounded border border-[#D9E2EC] px-3 py-2">
+              <select value={studentModal.academic_year_id || ''} onChange={(e) => setStudentModal({ ...studentModal, academic_year_id: e.target.value })} className="rounded border border-[#D9E2EC] px-3 py-2 bg-white">
+                <option value="">{lang === 'ur' ? 'تعلیمی سال منتخب کریں' : 'Select Academic Year'}</option>
+                {(data.academicYears || []).map((ayr: any) => (
+                  <option key={ayr.id} value={ayr.id}>{pick(ayr.title_en, ayr.title_ur)}</option>
+                ))}
+              </select>
+              <select value={studentModal.batch_id || ''} onChange={(e) => setStudentModal({ ...studentModal, batch_id: e.target.value })} className="rounded border border-[#D9E2EC] px-3 py-2 bg-white">
+                <option value="">{lang === 'ur' ? 'بیچ منتخب کریں' : 'Select Batch'}</option>
+                {(data.batches || []).map((bat: any) => (
+                  <option key={bat.id} value={bat.id}>{pick(bat.name_en, bat.name_ur)}</option>
+                ))}
+              </select>
+              <select value={studentModal.status || 'active'} onChange={(e) => setStudentModal({ ...studentModal, status: e.target.value })} className="rounded border border-[#D9E2EC] px-3 py-2 bg-white">
                 <option value="active">{lang === 'ur' ? 'فعال' : 'Active'}</option>
                 <option value="on_leave">{lang === 'ur' ? 'رخصت' : 'On Leave'}</option>
                 <option value="graduated">{lang === 'ur' ? 'فارغ التحصیل' : 'Graduated'}</option>
@@ -2069,6 +2133,117 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({ onNavigate }) =>
             </div>
             <div className="flex justify-end gap-2 pt-2">
               <button type="button" onClick={() => setStudentModal(null)} className="rounded border border-[#D9E2EC] px-4 py-2">{lang === 'ur' ? 'منسوخ' : 'Cancel'}</button>
+              <button type="submit" className="rounded bg-[#057A4B] px-4 py-2 font-semibold text-white">{lang === 'ur' ? 'محفوظ کریں' : 'Save'}</button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {mutalaModal && (
+        <Modal title={mutalaModal.id ? (lang === 'ur' ? 'مطالعہ ریکارڈ میں ترمیم' : 'Edit Mutala Log') : (lang === 'ur' ? 'نیا مطالعہ ریکارڈ' : 'New Mutala Log')} onClose={() => setMutalaModal(null)}>
+          <form onSubmit={saveMutala} className="space-y-3 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block mb-1 font-semibold text-[#0B2545]">{lang === 'ur' ? 'طالب علم' : 'Student'}</label>
+                <select
+                  value={mutalaModal.student_id || ''}
+                  onChange={(e) => {
+                    const st = data.students?.find((s: any) => s.id === e.target.value);
+                    setMutalaModal({
+                      ...mutalaModal,
+                      student_id: e.target.value,
+                      student_name: st?.full_name || mutalaModal.student_name,
+                      student_name_ur: st?.full_name_ur || mutalaModal.student_name_ur,
+                      student_code: st?.student_code || mutalaModal.student_code,
+                      class_id: st?.class_id || mutalaModal.class_id,
+                    });
+                  }}
+                  className="w-full rounded border border-[#D9E2EC] px-3 py-2 bg-white"
+                >
+                  {(data.students || []).map((s: any) => (
+                    <option key={s.id} value={s.id}>{pick(s.full_name, s.full_name_ur)} ({s.student_code})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block mb-1 font-semibold text-[#0B2545]">{lang === 'ur' ? 'کتاب' : 'Book'}</label>
+                <select
+                  value={mutalaModal.book_id || ''}
+                  onChange={(e) => {
+                    const bk = data.books?.find((b: any) => b.id === e.target.value);
+                    setMutalaModal({
+                      ...mutalaModal,
+                      book_id: e.target.value,
+                      book_title_en: bk?.title_en || mutalaModal.book_title_en,
+                      book_title_ur: bk?.title_ur || mutalaModal.book_title_ur,
+                    });
+                  }}
+                  className="w-full rounded border border-[#D9E2EC] px-3 py-2 bg-white"
+                >
+                  {(data.books || []).map((bk: any) => (
+                    <option key={bk.id} value={bk.id}>{pick(bk.title_en, bk.title_ur)}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block mb-1 font-semibold text-[#0B2545]">{lang === 'ur' ? 'تاریخ' : 'Date'}</label>
+                <input
+                  type="date"
+                  value={mutalaModal.study_date || ''}
+                  onChange={(e) => setMutalaModal({ ...mutalaModal, study_date: e.target.value })}
+                  className="w-full rounded border border-[#D9E2EC] px-3 py-2 font-mono-code"
+                />
+              </div>
+
+              <div>
+                <label className="block mb-1 font-semibold text-[#0B2545]">{lang === 'ur' ? 'مبحث / باب' : 'Chapter'}</label>
+                <input
+                  placeholder={lang === 'ur' ? 'کتاب البیوع' : 'Chapter'}
+                  value={mutalaModal.chapter || mutalaModal.start_title || ''}
+                  onChange={(e) => setMutalaModal({ ...mutalaModal, chapter: e.target.value, start_title: e.target.value })}
+                  className="w-full rounded border border-[#D9E2EC] px-3 py-2"
+                />
+              </div>
+
+              <div>
+                <label className="block mb-1 font-semibold text-[#0B2545]">{lang === 'ur' ? 'صفحات کی تعداد' : 'Daily Pages'}</label>
+                <input
+                  type="number"
+                  placeholder="5"
+                  value={mutalaModal.daily_pages || ''}
+                  onChange={(e) => setMutalaModal({ ...mutalaModal, daily_pages: e.target.value })}
+                  className="w-full rounded border border-[#D9E2EC] px-3 py-2 font-mono-code"
+                />
+              </div>
+
+              <div>
+                <label className="block mb-1 font-semibold text-[#0B2545]">{lang === 'ur' ? 'حالت' : 'Status'}</label>
+                <select
+                  value={mutalaModal.status || 'approved'}
+                  onChange={(e) => setMutalaModal({ ...mutalaModal, status: e.target.value })}
+                  className="w-full rounded border border-[#D9E2EC] px-3 py-2 bg-white"
+                >
+                  <option value="approved">{lang === 'ur' ? 'منظور شدہ' : 'Approved'}</option>
+                  <option value="pending">{lang === 'ur' ? 'زیر جائزہ' : 'Pending'}</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block mb-1 font-semibold text-[#0B2545]">{lang === 'ur' ? 'جزئیات و تفصیلی نوٹس' : 'Notes & Details'}</label>
+              <textarea
+                rows={2}
+                value={mutalaModal.study_details || mutalaModal.juziyat_notes || ''}
+                onChange={(e) => setMutalaModal({ ...mutalaModal, study_details: e.target.value, juziyat_notes: e.target.value })}
+                className="w-full rounded border border-[#D9E2EC] px-3 py-2"
+                placeholder={lang === 'ur' ? 'مطالعہ کی اہم جزئیات و فقہی نکات...' : 'Key research takeaways...'}
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button type="button" onClick={() => setMutalaModal(null)} className="rounded border border-[#D9E2EC] px-4 py-2">{lang === 'ur' ? 'منسوخ' : 'Cancel'}</button>
               <button type="submit" className="rounded bg-[#057A4B] px-4 py-2 font-semibold text-white">{lang === 'ur' ? 'محفوظ کریں' : 'Save'}</button>
             </div>
           </form>

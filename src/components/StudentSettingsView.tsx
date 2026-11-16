@@ -12,6 +12,7 @@ export const StudentSettingsView: React.FC = () => {
   const [profileSaving, setProfileSaving] = useState(false);
   const [pinSaving, setPinSaving] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [studentProfile, setStudentProfile] = useState<any | null>(null);
 
   // Profile fields
   const [phone, setPhone] = useState('');
@@ -33,6 +34,7 @@ export const StudentSettingsView: React.FC = () => {
       .then((data) => {
         const s = data?.student || data;
         if (s) {
+          setStudentProfile(s);
           setPhone(s.phone || '');
           setGuardianPhone(s.guardian_phone || s.guardianPhone || '');
           setEmail(s.email || user.email || '');
@@ -198,22 +200,28 @@ export const StudentSettingsView: React.FC = () => {
           <div className="rounded-lg bg-[#F8FAFC] border border-[#E2E8F0] p-3 text-xs space-y-1.5">
             <div className="flex justify-between">
               <span className="text-[#627D98]">{lang === 'ur' ? 'طالب علم کا نام:' : 'Student Name:'}</span>
-              <span className="font-bold text-[#0B2545]">{user?.nameUr || user?.nameEn}</span>
+              <span className="font-bold text-[#0B2545]">{studentProfile?.full_name_ur || studentProfile?.full_name || user?.nameUr || user?.nameEn}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-[#627D98]">{lang === 'ur' ? 'رجسٹریشن کوڈ:' : 'Code:'}</span>
-              <span className="font-mono-code font-bold text-[#057A4B]">{user?.studentCode}</span>
+              <span className="font-mono-code font-bold text-[#057A4B]">{studentProfile?.student_code || user?.studentCode}</span>
             </div>
-            {user?.fatherNameUr && (
+            {(studentProfile?.father_name_ur || studentProfile?.father_name || user?.fatherNameUr) && (
               <div className="flex justify-between">
                 <span className="text-[#627D98]">{lang === 'ur' ? 'والد کا نام:' : 'Father Name:'}</span>
-                <span className="text-[#0B2545]">{user.fatherNameUr}</span>
+                <span className="text-[#0B2545]">{studentProfile?.father_name_ur || studentProfile?.father_name || user?.fatherNameUr}</span>
               </div>
             )}
             <div className="flex justify-between">
               <span className="text-[#627D98]">{lang === 'ur' ? 'شعبہ و درجہ:' : 'Class:'}</span>
-              <span className="text-[#0B2545]">{user?.classNameUr || 'تخصص فی الفقہ'}</span>
+              <span className="text-[#0B2545]">{studentProfile?.class_name_ur || user?.classNameUr || 'تخصص فی الفقہ'}</span>
             </div>
+            {(studentProfile?.year_title_ur || user?.yearTitleUr) && (
+              <div className="flex justify-between">
+                <span className="text-[#627D98]">{lang === 'ur' ? 'تعلیمی سال:' : 'Academic Year:'}</span>
+                <span className="text-[#0B2545]">{studentProfile?.year_title_ur || user?.yearTitleUr || '۱۴۴۷-۱۴۴۸ھ'}</span>
+              </div>
+            )}
           </div>
 
           <form onSubmit={handleProfileSubmit} className="space-y-4 text-xs">

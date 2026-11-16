@@ -40,6 +40,7 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<ProfileTab>('overview');
+  const [lookups, setLookups] = useState<any>(null);
 
   // Document Upload State
   const [docTitle, setDocTitle] = useState('');
@@ -51,7 +52,11 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({
     setLoading(true);
     setError(null);
     try {
-      const res = await apiFetch(`/api/students/${studentId}`, {}, user);
+      const [res, lkpRes] = await Promise.all([
+        apiFetch(`/api/students/${studentId}`, {}, user),
+        apiFetch('/api/lookups', {}, user).catch(() => null),
+      ]);
+      if (lkpRes) setLookups(lkpRes);
       const studentObj = res?.student || (res?.id ? res : null);
       if (!studentObj) {
         throw new Error('Student record not found');
@@ -141,6 +146,21 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({
   const attPresent = attendance.filter((a: any) => a.status === 'present' || a.status === 'late').length;
   const attPct = attTotal > 0 ? Math.round((attPresent / attTotal) * 100) : 0;
 
+  const classNameDisplay =
+    pick(st.class_name_en, st.class_name_ur) ||
+    (st.class_id ? lookups?.classes?.find((c: any) => c.id === st.class_id)?.name_ur : null) ||
+    'تخصص فی الفقہ — سالِ اول';
+
+  const yearTitleDisplay =
+    pick(st.year_title_en, st.year_title_ur) ||
+    (st.academic_year_id ? lookups?.academicYears?.find((y: any) => y.id === st.academic_year_id)?.title_ur : null) ||
+    '۱۴۴۷-۱۴۴۸ھ';
+
+  const batchNameDisplay =
+    pick(st.batch_name_en, st.batch_name_ur) ||
+    (st.batch_id ? lookups?.batches?.find((b: any) => b.id === st.batch_id)?.name_ur : null) ||
+    '';
+
   const tabs: Array<{ id: ProfileTab; label: string }> = [
     { id: 'overview', label: lang === 'ur' ? 'خلاصہ' : 'Overview' },
     { id: 'personal', label: t('tabPersonal') },
@@ -204,15 +224,15 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({
             </div>
             <h2 className="mt-1 text-lg font-bold text-[#111C18]">{pick(st.full_name, st.full_name_ur)}</h2>
             <div className="text-xs text-[#5A6D65]">
-              <span>{pick(st.class_name_en, st.class_name_ur)}</span>
-              {st.batch_name_en && (
+              <span>{classNameDisplay}</span>
+              {batchNameDisplay && (
                 <>
                   <span className="mx-1.5" aria-hidden="true">·</span>
-                  <span>{pick(st.batch_name_en, st.batch_name_ur)}</span>
+                  <span>{batchNameDisplay}</span>
                 </>
               )}
               <span className="mx-1.5" aria-hidden="true">·</span>
-              <span>{pick(st.year_title_en, st.year_title_ur)}</span>
+              <span>{yearTitleDisplay}</span>
             </div>
           </div>
         </div>
@@ -298,11 +318,11 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({
                   <h3 className="text-sm font-semibold text-[#065F46] mb-3">{lang === 'ur' ? 'درجہ و تعلیمی تفصیل' : 'Class & Academic Detail'}</h3>
                   <dl className="grid grid-cols-3 gap-y-2 text-xs">
                     <dt className="text-[#5A6D65]">{lang === 'ur' ? 'درجہ' : 'Class'}</dt>
-                    <dd className="col-span-2 font-medium text-[#111C18]">{pick(st.class_name_en, st.class_name_ur) || '—'}</dd>
+                    <dd className="col-span-2 font-medium text-[#111C18]">{classNameDisplay}</dd>
                     <dt className="text-[#5A6D65]">{lang === 'ur' ? 'بیچ' : 'Batch'}</dt>
-                    <dd className="col-span-2 text-[#111C18]">{pick(st.batch_name_en, st.batch_name_ur) || '—'}</dd>
+                    <dd className="col-span-2 text-[#111C18]">{batchNameDisplay || '—'}</dd>
                     <dt className="text-[#5A6D65]">{t('academicYear')}</dt>
-                    <dd className="col-span-2 text-[#111C18]">{pick(st.year_title_en, st.year_title_ur) || '—'}</dd>
+                    <dd className="col-span-2 text-[#111C18]">{yearTitleDisplay}</dd>
                     <dt className="text-[#5A6D65]">{t('admissionDate')}</dt>
                     <dd className="col-span-2 font-mono-code text-[#111C18]">{st.admission_date || '—'}</dd>
                     <dt className="text-[#5A6D65]">{t('phone')}</dt>

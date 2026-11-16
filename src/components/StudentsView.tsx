@@ -300,6 +300,10 @@ export const StudentsView: React.FC<StudentsViewProps> = ({ initialStudentId }) 
     setSaving(true);
     setFormError('');
     try {
+      const cls = lookups.classes?.find((c: any) => c.id === form.class_id);
+      const ayr = lookups.academicYears?.find((y: any) => y.id === form.academic_year_id);
+      const bat = lookups.batches?.find((b: any) => b.id === form.batch_id);
+
       const payload = {
         ...form,
         full_name: (form.full_name || '').trim() || studentName,
@@ -308,6 +312,12 @@ export const StudentsView: React.FC<StudentsViewProps> = ({ initialStudentId }) 
         father_name_ur: fatherName,
         phone: phone !== '—' ? formatPakistaniMobile(phone) : '—',
         guardian_phone: guardianPhone !== '—' ? formatPakistaniMobile(guardianPhone) : '—',
+        class_name_ur: cls?.name_ur || 'تخصص فی الفقہ — سالِ اول',
+        class_name_en: cls?.name_en || 'Takhassus fil Fiqh — Year 1',
+        year_title_ur: ayr?.title_ur || '۱۴۴۷-۱۴۴۸ھ',
+        year_title_en: ayr?.title_en || '1447-1448 AH',
+        batch_name_ur: bat?.name_ur || '',
+        batch_name_en: bat?.name_en || '',
       };
       if (editingStudent) {
         await apiFetch(`/api/students/${editingStudent.id}`, { method: 'PUT', body: JSON.stringify(payload) }, user);
